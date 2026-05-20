@@ -32,11 +32,25 @@ internal class Program
         stylesPart.Styles = new Styles(H.MakeDocDefaults());
         stylesPart.Styles.Save();
 
+        // Enable "为尾部空格添加下划线" (underline trailing spaces)
+        var settingsPart = mainPart.AddNewPart<DocumentSettingsPart>();
+        using (var sw = new StreamWriter(settingsPart.GetStream(FileMode.Create)))
+        {
+            sw.Write(@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<w:settings xmlns:w=""http://schemas.openxmlformats.org/wordprocessingml/2006/main"">
+  <w:compat><w:ulTrailSpace/></w:compat>
+</w:settings>");
+        }
+
         fnPart = mainPart.AddNewPart<FootnotesPart>();
         fnPart.Footnotes = new Footnotes();
         H.SetupFootnotes(fnPart);
 
         BuildDocument();
+
+        // Insert template cover and back cover
+        string templatePath = Path.Combine(BASE, "template", "附件4：本科学年论文封面、说明、承诺使用页、封底示例 .docx");
+        H.MergeTemplate(doc, mainPart, body!, templatePath);
 
         fnPart.Footnotes!.Save();
         H.AddComments(mainPart, body!);
@@ -65,34 +79,22 @@ internal class Program
 
         // SECTION 1: Cover + Explanation + Academic Pledge
         H.AddBlankPage(b); H.AddBlankPage(b); H.AddBlankPage(b);
-        var s1sp = H.MakeSectPr(null, null, null, null);
-        s1sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
-        H.CloseSection(b, s1sp);
+        H.CloseSection(b, H.MakeSectPr(null, null, SectionMarkValues.OddPage, null, null));
 
-        // SECTION 2: Chinese Abstract
+        // SECTION 2: Chinese Abstract + English Abstract + TOC (merged, page breaks between them)
         b.Append(H.MakeCenteredTitle("摘  要", "SimHei", "36", "360", "360"));
         b.Append(H.MakeBodyPara("随着短视频平台的快速发展，其对大学生群体的影响日益凸显。本研究探讨短视频对大学生学习行为的双重影响，结合相关调查数据，分析其在碎片化知识获取与注意力分散等方面的作用机制。研究发现，短视频既为大学生拓展了学习资源，也带来了学习投入不足等问题，需引导大学生合理使用短视频工具。"));
         b.Append(H.MakeKeyPara(true, "短视频；大学生；学习行为；学习投入；注意力分散"));
-        var s2sp = H.MakeSectPr(hdrRomanId, ftrRomanId, NumberFormatValues.LowerRoman, 1);
-        s2sp.Append(new SectionType { Val = SectionMarkValues.NextPage });
-        H.CloseSection(b, s2sp);
-
-        // SECTION 3: English Abstract
+        H.AddPageBreak(b);
         b.Append(H.MakeAbstractTitle());
         b.Append(H.MakeAbstractBody());
         b.Append(H.MakeEngKeyPara());
-        var s3sp = H.MakeSectPr(hdrRomanId, ftrRomanId, NumberFormatValues.LowerRoman, null);
-        s3sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
-        H.CloseSection(b, s3sp);
-
-        // SECTION 4: TOC
+        H.AddPageBreak(b);
         b.Append(H.MakeCenteredTitle("目  录", "SimSun", "36", "360", "360"));
         H.AddTOC(b);
-        var s4sp = H.MakeSectPr(hdrRomanId, ftrRomanId, NumberFormatValues.LowerRoman, null);
-        s4sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
-        H.CloseSection(b, s4sp);
+        H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.OddPage, NumberFormatValues.UpperRoman, 1));
 
-        // SECTION 5: Body
+        // SECTION 3: Body
         b.Append(H.MakeH1("导  论"));
         H.AddBodyParaWithFn(b, "近年来，我国互联网用户规模持续增长，短视频作为新兴的媒介形式，已经成为大学生日常信息获取与娱乐的重要渠道", fnId++, H.FN4());
         H.AddBodyParaWithFn(b, "。根据中国互联网络信息中心的统计数据，截至2025年6月，我国短视频用户规模已达10.8亿，其中18-24岁的大学生群体占比超过15%", fnId++, H.FN4());
@@ -132,39 +134,31 @@ internal class Program
         H.AddRunToLastPara(b, "。这说明当前大学生对短视频的学习价值挖掘仍有不足，大部分时间仍用于娱乐消遣。");
         b.Append(H.MakeBodyPara("综上，短视频对大学生学习行为的影响是双重的，既带来了学习资源的拓展与碎片化学习的便利，也带来了注意力分散、学习投入不足等问题。高校与家庭应引导大学生合理规划短视频使用时间，充分发挥其积极作用，规避消极影响，帮助大学生更好地利用短视频工具提升学习效果。"));
 
-        var s5sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, 1);
+        var s5sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.OddPage, NumberFormatValues.Decimal, 1);
         s5sp.Append(new FootnoteProperties(
             new FootnotePosition { Val = FootnotePositionValues.PageBottom },
             new NumberingFormat { Val = NumberFormatValues.Decimal },
             new NumberingRestart { Val = RestartNumberValues.EachPage },
             new NumberingStart { Val = 1 }));
-        s5sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
         H.CloseSection(b, s5sp);
 
         // SECTION 6: References
         b.Append(H.MakeH1("参考文献"));
         H.AddReferences(b);
-        var s6sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, null);
-        s6sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
-        H.CloseSection(b, s6sp);
+        H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.OddPage, NumberFormatValues.Decimal, null));
 
         // SECTION 7: Appendix
         b.Append(H.MakeAppendixTitle());
-        var s7sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, null);
-        s7sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
-        H.CloseSection(b, s7sp);
+        H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.OddPage, NumberFormatValues.Decimal, null));
 
         // SECTION 8: Acknowledgments
         b.Append(H.MakeAckTitle());
         b.Append(H.MakeBodyPara("本论文的完成得益于指导教师的悉心指导和同学们的帮助。在论文写作过程中，我学习了文献查阅和数据分析的方法，也认识到自身在学术研究方面的不足。今后将继续努力，不断提升自己的学术素养和研究能力。感谢所有在论文写作过程中给予我支持和帮助的人。"));
-        var s8sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, null);
-        s8sp.Append(new SectionType { Val = SectionMarkValues.NextPage });
-        H.CloseSection(b, s8sp);
+        H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.NextPage, NumberFormatValues.Decimal, null));
 
-        // SECTION 9: Back cover + Grade table
+        // SECTION 9: Back cover + Grade table (final, sectPr in body)
         H.AddBlankPage(b); H.AddBlankPage(b);
-        var s9sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, null);
-        b.Append(s9sp);
+        b.Append(H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, null, NumberFormatValues.Decimal, null));
     }
 }
 
@@ -382,6 +376,12 @@ internal static class H
     public static string FN3() => "Zhang L, Liu M. The effect of short-form video addiction on undergraduates’ academic procrastination: a moderated mediation model[J]. Frontiers in Psychology, 2023, 14:1298361.";
     public static string FN4() => "中国互联网络信息中心. 第55次中国互联网络发展状况统计报告[R]. 北京: 中国互联网络信息中心, 2025.";
 
+    public static void AddPageBreak(Body body)
+    {
+        var p = body.Elements<Paragraph>().LastOrDefault(); if (p == null) return;
+        p.Append(new Run(new Break { Type = BreakValues.Page }));
+    }
+
     public static void AddBlankPage(Body body)
     {
         body.Append(new Paragraph(new ParagraphProperties(new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto }), new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("") { Space = SpaceProcessingModeValues.Preserve })));
@@ -397,20 +397,34 @@ internal static class H
                 new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto })));
     }
 
-    public static SectionProperties MakeSectPr(string? hdrId, string? ftrId, NumberFormatValues? nf, int? start)
+    // sectPr child order (OpenXML schema):
+    // headerRef* footerRef* footnotePr? endnotePr? [type] pgSz pgMar ... docGrid pgNumType ... evenAndOddHeaders?
+    public static SectionProperties MakeSectPr(string? hdrId, string? ftrId, SectionMarkValues? secType, NumberFormatValues? nf, int? start)
     {
-        var sp = new SectionProperties(MakePageSize(), MakeMargin(), new DocGrid { LinePitch = 1 });
+        var sp = new SectionProperties();
         if (hdrId != null) sp.Append(new HeaderReference { Type = HeaderFooterValues.Default, Id = hdrId });
         if (ftrId != null) sp.Append(new FooterReference { Type = HeaderFooterValues.Default, Id = ftrId });
+        if (secType.HasValue) sp.Append(new SectionType { Val = secType.Value });
+        sp.Append(MakePageSize());
+        sp.Append(MakeMargin());
+        sp.Append(new DocGrid { LinePitch = 1 });
         if (nf != null) { var pnt = new PageNumberType { Format = nf }; if (start.HasValue) pnt.Start = start.Value; sp.Append(pnt); }
         return sp;
     }
 
-    public static SectionProperties MakeArabicSectPr(string hdrOdd, string ftrOdd, string hdrEven, string ftrEven, NumberFormatValues? nf, int? start)
+    public static SectionProperties MakeArabicSectPr(string hdrOdd, string ftrOdd, string hdrEven, string ftrEven, SectionMarkValues? secType, NumberFormatValues? nf, int? start)
     {
-        var sp = MakeSectPr(hdrOdd, ftrOdd, nf, start);
+        var sp = new SectionProperties();
+        sp.Append(new HeaderReference { Type = HeaderFooterValues.Default, Id = hdrOdd });
+        sp.Append(new FooterReference { Type = HeaderFooterValues.Default, Id = ftrOdd });
         sp.Append(new HeaderReference { Type = HeaderFooterValues.Even, Id = hdrEven });
         sp.Append(new FooterReference { Type = HeaderFooterValues.Even, Id = ftrEven });
+        if (secType.HasValue) sp.Append(new SectionType { Val = secType.Value });
+        sp.Append(MakePageSize());
+        sp.Append(MakeMargin());
+        sp.Append(new DocGrid { LinePitch = 1 });
+        if (nf != null) { var pnt = new PageNumberType { Format = nf }; if (start.HasValue) pnt.Start = start.Value; sp.Append(pnt); }
+        sp.Append(new EvenAndOddHeaders());
         return sp;
     }
 
@@ -425,7 +439,11 @@ internal static class H
     public static HeaderPart MakeHeader(MainDocumentPart mp, string text, JustificationValues jc)
     {
         var hp = mp.AddNewPart<HeaderPart>();
-        hp.Header = new Header(new Paragraph(new ParagraphProperties(new Justification { Val = jc }),
+        hp.Header = new Header(new Paragraph(
+            new ParagraphProperties(
+                new Justification { Val = jc },
+                new ParagraphBorders(
+                    new BottomBorder { Val = BorderValues.Single, Size = 6, Space = 1, Color = "000000" })),
             new Run(new RunProperties(new RunFonts { EastAsia = "SimSun", Ascii = "Times New Roman", HighAnsi = "Times New Roman" }, new FontSize { Val = SZ_XIAOWU }, new FontSizeComplexScript { Val = SZ_XIAOWU }),
                 new Text(text) { Space = SpaceProcessingModeValues.Preserve })));
         hp.Header.Save(); return hp;
@@ -435,9 +453,14 @@ internal static class H
     {
         var fp = mp.AddNewPart<FooterPart>();
         var para = new Paragraph(new ParagraphProperties(new Justification { Val = jc }));
-        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Begin }));
-        para.Append(new Run(new FieldCode(" PAGE ") { Space = SpaceProcessingModeValues.Preserve }));
-        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.End }));
+        // PAGE field with 小五 font
+        var rp = new RunProperties(
+            new RunFonts { EastAsia = "SimSun", Ascii = "Times New Roman", HighAnsi = "Times New Roman" },
+            new FontSize { Val = SZ_XIAOWU },
+            new FontSizeComplexScript { Val = SZ_XIAOWU });
+        para.Append(new Run(new RunProperties(rp.CloneNode(true)), new FieldChar { FieldCharType = FieldCharValues.Begin }));
+        para.Append(new Run(new RunProperties(rp.CloneNode(true)), new FieldCode(" PAGE ") { Space = SpaceProcessingModeValues.Preserve }));
+        para.Append(new Run(new RunProperties(rp.CloneNode(true)), new FieldChar { FieldCharType = FieldCharValues.End }));
         fp.Footer = new Footer(para); fp.Footer.Save(); return fp;
     }
 
@@ -558,6 +581,205 @@ internal static class H
         return new Paragraph(
             new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Before = SP_H1, After = SP_H1, Line = LINE_125, LineRule = LineSpacingRuleValues.Auto }, new OutlineLevel { Val = 0 }),
             new Run(MakeRP("SimSun", SZ_SANHAO, bold: true), new Text("致  谢") { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    // ═══════════════════════════════════════════
+    // Fix signature underline length
+    // ═══════════════════════════════════════════
+    static void FixSignatureUnderlines(OpenXmlElement el)
+    {
+        // Process all paragraphs in the element tree
+        foreach (var p in el.Descendants<Paragraph>())
+        {
+            var pText = p.InnerText;
+            // Only process paragraphs with signature-related content
+            if (!pText.Contains("签名") && !pText.Contains("期") && !pText.Contains("指导教师"))
+                continue;
+
+            var runs = p.Elements<Run>().ToList();
+            foreach (var r in runs)
+            {
+                var rp = r.Elements<RunProperties>().FirstOrDefault();
+                if (rp == null) continue;
+                var u = rp.Elements<Underline>().FirstOrDefault();
+                if (u == null) continue;
+
+                // This run has underline — extend its spaces
+                var t = r.Elements<Text>().FirstOrDefault();
+                if (t == null) continue;
+
+                var text = t.Text ?? "";
+                // Only affects runs that are primarily whitespace
+                if (text.Trim().Length == 0 && text.Length > 0)
+                {
+                    // Double the whitespace count for longer underline
+                    t.Text = new string(' ', Math.Max(24, text.Length * 2));
+                }
+                else if (text.Trim().Length > 0 && text.Contains(" ") && text.Length - text.Trim().Length > text.Trim().Length)
+                {
+                    // Run has mostly spaces with some text — extend trailing spaces
+                    var trimmed = text.TrimEnd();
+                    var spaceCount = text.Length - trimmed.Length;
+                    t.Text = trimmed + new string(' ', Math.Max(24, spaceCount * 2));
+                }
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════
+    // Merge template cover/back cover
+    // ═══════════════════════════════════════════
+    public static void MergeTemplate(WordprocessingDocument outDoc, MainDocumentPart outMain, Body outBody, string templatePath)
+    {
+        if (!File.Exists(templatePath)) { Console.WriteLine("Template not found, skipping merge."); return; }
+
+        using var tplDoc = WordprocessingDocument.Open(templatePath, false);
+        var tplMain = tplDoc.MainDocumentPart!;
+        var tplBody = tplMain.Document!.Body!;
+
+        // Collect all body children and find section break positions
+        var children = tplBody.ChildElements.ToList();
+        var sectPrIndices = new List<int>(); // indices of paragraphs that contain sectPr in pPr
+        int bodySectPrIndex = -1;
+
+        for (int i = 0; i < children.Count; i++)
+        {
+            if (children[i] is Paragraph p)
+            {
+                var pp = p.Elements<ParagraphProperties>().FirstOrDefault();
+                if (pp != null && pp.Elements<SectionProperties>().Any())
+                    sectPrIndices.Add(i);
+            }
+            if (children[i] is SectionProperties)
+                bodySectPrIndex = i;
+        }
+
+        Console.WriteLine($"Template sections: {sectPrIndices.Count} in-pPr, body sectPr at {bodySectPrIndex}");
+
+        // The template has:
+        // - Cover pages (paragraphs before the 2nd sectPr) - this is the last in-pPr sectPr before back cover
+        // - Back cover (paragraphs after the 2nd sectPr, up to the body sectPr)
+        // We want: cover content before our content, back cover after our content
+
+        if (sectPrIndices.Count < 2) { Console.WriteLine("Template doesn't have expected structure."); return; }
+
+        int coverEnd = sectPrIndices[1]; // index of 2nd sectPr paragraph (this ends the academic pledge section)
+        int backCoverStart = sectPrIndices[1] + 1;
+        int backCoverEnd = bodySectPrIndex >= 0 ? bodySectPrIndex : children.Count;
+
+        // Copy images from template to output
+        var imageMap = CopyImages(tplMain, outMain);
+
+        // ── Prepend cover paragraphs (before our first section) ──
+        var coverElements = new List<OpenXmlElement>();
+        for (int i = 0; i <= coverEnd; i++)
+        {
+            var el = CloneWithoutSectPr(children[i], imageMap);
+            if (el != null) { FixSignatureUnderlines(el); coverElements.Add(el); }
+        }
+        // Insert cover at the very beginning of our body
+        OpenXmlElement? firstChild = outBody.Elements<Paragraph>().FirstOrDefault()
+            ?? (OpenXmlElement?)outBody.Elements<Table>().FirstOrDefault();
+        if (firstChild != null)
+        {
+            foreach (var el in coverElements)
+                outBody.InsertBefore(el, firstChild);
+        }
+
+        // ── Append back cover paragraphs (after our last section, before final sectPr) ──
+        var bcElements = new List<OpenXmlElement>();
+        for (int i = backCoverStart; i < backCoverEnd; i++)
+        {
+            var el = CloneWithoutSectPr(children[i], imageMap);
+            if (el != null) bcElements.Add(el);
+        }
+        // Insert before the final sectPr in our body
+        var finalSectPr = outBody.Elements<SectionProperties>().FirstOrDefault();
+        foreach (var el in bcElements)
+        {
+            if (finalSectPr != null)
+                outBody.InsertBefore(el, finalSectPr);
+            else
+                outBody.Append(el);
+        }
+
+        Console.WriteLine($"Merged {coverElements.Count} cover elements + {bcElements.Count} back cover elements");
+    }
+
+    static Dictionary<string, string> CopyImages(MainDocumentPart src, MainDocumentPart dst)
+    {
+        var map = new Dictionary<string, string>();
+        foreach (var ip in src.ImageParts)
+        {
+            var newIp = dst.AddImagePart(ip.ContentType);
+            using (var s = ip.GetStream(FileMode.Open))
+                newIp.FeedData(s);
+            var oldId = src.GetIdOfPart(ip);
+            var newId = dst.GetIdOfPart(newIp);
+            map[oldId] = newId;
+        }
+        return map;
+    }
+
+    static OpenXmlElement? CloneWithoutSectPr(OpenXmlElement el, Dictionary<string, string> imageMap)
+    {
+        var clone = el.CloneNode(true);
+
+        // Skip SectionProperties at body level
+        if (clone is SectionProperties) return null;
+
+        bool hadSectPr = false;
+        if (clone is Paragraph p)
+        {
+            var pp = p.Elements<ParagraphProperties>().FirstOrDefault();
+            if (pp != null)
+            {
+                var sp = pp.Elements<SectionProperties>().FirstOrDefault();
+                if (sp != null)
+                {
+                    hadSectPr = true;
+                    sp.Remove();
+                }
+            }
+        }
+
+        // Force xml:space="preserve" on ALL Text elements
+        foreach (var t in clone.Descendants<Text>())
+        {
+            // Use SetAttribute to ensure the xml:space attribute is written to XML
+            t.Space = SpaceProcessingModeValues.Preserve;
+            t.SetAttribute(new OpenXmlAttribute("xml", "space", "http://www.w3.org/XML/1998/namespace", "preserve"));
+        }
+
+        // Fix: also preserve rFonts attributes explicitly
+        foreach (var rf in clone.Descendants<RunFonts>())
+        {
+            if (rf.Hint != null)
+            {
+                var hintVal = rf.Hint.Value;
+                rf.SetAttribute(new OpenXmlAttribute("w", "hint", null, hintVal == FontTypeHintValues.EastAsia ? "eastAsia" : ""));
+            }
+        }
+
+        // Add page break if we removed a sectPr
+        if (hadSectPr)
+        {
+            ((Paragraph)clone).Append(new Run(new Break { Type = BreakValues.Page }));
+        }
+
+        // Update image relationship IDs
+        UpdateBlipIds(clone, imageMap);
+
+        return clone;
+    }
+
+    static void UpdateBlipIds(OpenXmlElement el, Dictionary<string, string> imageMap)
+    {
+        foreach (var blip in el.Descendants<A.Blip>())
+        {
+            if (blip.Embed != null && imageMap.TryGetValue(blip.Embed!.Value!, out var newId))
+                blip.Embed = newId;
+        }
     }
 
     public static void AddComments(MainDocumentPart mp, Body body)

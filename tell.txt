@@ -1,1 +1,6 @@
-❯ /qiuzhi-skill-creator 在D:\360MoveData\Users\ban\Desktop\school_about\word_about\sxuyear目录下创建一份skill，命名为sxuyear，调用方式为输入/sxuyear的命令。此skill大致流程为：只使用minimax-docx skill的情况下，先读取论文格式文档"D:\360MoveData\Users\ban\Desktop\school_about\word_about\sxuyear\template\山西财经大学学年论文格式.md"里面的内容并结合论文文档d:\360MoveData\Users\ban\Desktop\school_about\word_about\sxuyear\input\学年论文.md 将转换得到的doxc文件输出到D:\360MoveData\Users\ban\Desktop\school_about\word_about\sxuyear\output 里面，命名上根据论文的名称进行命名。
+ 现在整理我让你添加封面封底部分的全部，将完整的流程整理成一份md（  
+  包含流程和注意事项），放在D:\360MoveData\Users\ban\Desktop\schoo
+  l_about\word_about\sxuyear\.claude\skills\sxuyear目录下，在sxuye  
+  ar的skill里面添加一份逻辑：生成完成后请用户自行检查除封面封底外   
+  的结构。如果用户回答没问题，就运行添加封面封底的md，运行完成后提  
+  示用户自行用在学术承诺和使用说明页的下划线处按空格调整长度。
