@@ -703,7 +703,115 @@ internal static class H
                 outBody.Append(el);
         }
 
+        // Fill in cover table with user data
+        FillCoverTable(outBody);
+
         Console.WriteLine($"Merged {coverElements.Count} cover elements + {bcElements.Count} back cover elements");
+    }
+
+    static void FillCoverTable(Body outBody)
+    {
+        var tbl = outBody.Elements<Table>().FirstOrDefault();
+        if (tbl == null) return;
+
+        // Cover table row data: label, value, isEnglish
+        var data = new (string label, string value, bool isEnglish)[] {
+            ("中文题目", "短视频对大学生行为的影响研究", false),
+            ("英文题目", "Research on Short Videos’ Impact on College Students’ Behaviors", true),
+            ("姓名", "袁勋", false),
+            ("学号", "202310010237", false),
+            ("班级", "文化产业管理2班", false),
+            ("专业", "文化产业管理", false),
+            ("学院", "文化旅游与新闻艺术学院", false),
+            ("指导教师", "李旭鹏 讲师", false),
+            ("完成时间", "2026年5月5日", false),
+        };
+
+        var rows = tbl.Elements<TableRow>().ToList();
+        for (int i = 0; i < rows.Count && i < data.Length; i++)
+        {
+            var cells = rows[i].Elements<TableCell>().ToList();
+            if (cells.Count < 3) continue;
+            var targetCell = cells[2]; // 3rd column (0-indexed: 2)
+
+            // Remove existing empty paragraphs in the cell
+            targetCell.RemoveAllChildren<Paragraph>();
+
+            // Create filled paragraph
+            var para = new Paragraph(
+                new ParagraphProperties(
+                    new SpacingBetweenLines { Line = "360", LineRule = LineSpacingRuleValues.Auto },
+                    data[i].isEnglish
+                        ? new Justification { Val = JustificationValues.Left }
+                        : new Justification { Val = JustificationValues.Center }));
+
+            if (data[i].isEnglish)
+            {
+                // English title: Times New Roman 四号 斜体
+                para.Append(new Run(
+                    new RunProperties(
+                        new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" },
+                        new Italic(),
+                        new FontSize { Val = SZ_SIHAO }, new FontSizeComplexScript { Val = SZ_SIHAO }),
+                    new Text(data[i].value) { Space = SpaceProcessingModeValues.Preserve }));
+            }
+            else
+            {
+                // Chinese content: 宋体四号加粗, numbers TNR四号加粗, centered
+                // Split text into Chinese parts and number/English parts
+                var text = data[i].value;
+                var currentRun = new System.Text.StringBuilder();
+                var isCurrentLatin = false; // true for ASCII/digit chars
+
+                for (int j = 0; j < text.Length; j++)
+                {
+                    var c = text[j];
+                    var isLatin = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+                        || c == '/' || c == '-' || c == '.' || c == ' ';
+                    // Space can belong to either
+                    if (c == ' ') isLatin = isCurrentLatin;
+
+                    if (j == 0)
+                    {
+                        isCurrentLatin = isLatin;
+                        currentRun.Append(c);
+                    }
+                    else if (isLatin == isCurrentLatin)
+                    {
+                        currentRun.Append(c);
+                    }
+                    else
+                    {
+                        // Flush current run
+                        para.Append(MakeCoverRun(currentRun.ToString(), isCurrentLatin));
+                        currentRun.Clear();
+                        currentRun.Append(c);
+                        isCurrentLatin = isLatin;
+                    }
+                }
+                // Flush remaining
+                if (currentRun.Length > 0)
+                    para.Append(MakeCoverRun(currentRun.ToString(), isCurrentLatin));
+            }
+
+            targetCell.Append(para);
+        }
+    }
+
+    static Run MakeCoverRun(string text, bool isLatin)
+    {
+        var rp = new RunProperties(
+            new Bold(),
+            new FontSize { Val = SZ_SIHAO }, new FontSizeComplexScript { Val = SZ_SIHAO });
+        if (isLatin)
+        {
+            rp.Append(new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" });
+        }
+        else
+        {
+            rp.Append(new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "SimSun" });
+        }
+        return new Run(rp, new Text(text) { Space = SpaceProcessingModeValues.Preserve });
     }
 
     static Dictionary<string, string> CopyImages(MainDocumentPart src, MainDocumentPart dst)
