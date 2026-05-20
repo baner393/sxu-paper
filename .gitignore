@@ -1,0 +1,17 @@
+# Build artifacts
+build/*/bin/
+build/*/obj/
+
+# Generated output
+output/*.docx
+output/*.pdf
+
+# IDE
+*.suo
+*.user
+.vs/
+
+# OS
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/

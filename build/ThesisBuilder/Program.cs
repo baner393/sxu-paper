@@ -1,0 +1,588 @@
+using System;
+using System.IO;
+using System.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using A = DocumentFormat.OpenXml.Drawing;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
+
+internal class Program
+{
+    static string BASE = @"D:\360MoveData\Users\ban\Desktop\school_about\word_about\sxuyear";
+    static string OUTPUT;
+    static MainDocumentPart? mainPart;
+    static Body? body;
+    static FootnotesPart? fnPart;
+    static int fnId = 1;
+
+    static void Main(string[] args)
+    {
+        OUTPUT = Path.Combine(BASE, "output", $"短视频对大学生学习行为的影响研究.docx");
+        var outDir = Path.GetDirectoryName(OUTPUT);
+        if (outDir != null) Directory.CreateDirectory(outDir);
+
+        using var doc = WordprocessingDocument.Create(OUTPUT, WordprocessingDocumentType.Document);
+        mainPart = doc.AddMainDocumentPart();
+        mainPart.Document = new Document(new Body());
+        body = mainPart.Document.Body!;
+
+        var stylesPart = mainPart.AddNewPart<StyleDefinitionsPart>();
+        stylesPart.Styles = new Styles(H.MakeDocDefaults());
+        stylesPart.Styles.Save();
+
+        fnPart = mainPart.AddNewPart<FootnotesPart>();
+        fnPart.Footnotes = new Footnotes();
+        H.SetupFootnotes(fnPart);
+
+        BuildDocument();
+
+        fnPart.Footnotes!.Save();
+        H.AddComments(mainPart, body!);
+        mainPart.Document.Save();
+        Console.WriteLine("DONE: " + OUTPUT);
+    }
+
+    static void BuildDocument()
+    {
+        var b = body!;
+        var mp = mainPart!;
+
+        var hdrRoman = H.MakeHeader(mp, "山西财经大学2026级本科生学年论文", H.JC_CENTER);
+        var hdrRomanId = mp.GetIdOfPart(hdrRoman);
+        var ftrRoman = H.MakeFooter(mp, H.JC_CENTER);
+        var ftrRomanId = mp.GetIdOfPart(ftrRoman);
+
+        var hdrOdd = H.MakeHeader(mp, "山西财经大学2026级本科生学年论文", H.JC_RIGHT);
+        var hdrOddId = mp.GetIdOfPart(hdrOdd);
+        var hdrEven = H.MakeHeader(mp, "山西财经大学2026级本科生学年论文", H.JC_LEFT);
+        var hdrEvenId = mp.GetIdOfPart(hdrEven);
+        var ftrOdd = H.MakeFooter(mp, H.JC_RIGHT);
+        var ftrOddId = mp.GetIdOfPart(ftrOdd);
+        var ftrEven = H.MakeFooter(mp, H.JC_LEFT);
+        var ftrEvenId = mp.GetIdOfPart(ftrEven);
+
+        // SECTION 1: Cover + Explanation + Academic Pledge
+        H.AddBlankPage(b); H.AddBlankPage(b); H.AddBlankPage(b);
+        var s1sp = H.MakeSectPr(null, null, null, null);
+        s1sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
+        H.CloseSection(b, s1sp);
+
+        // SECTION 2: Chinese Abstract
+        b.Append(H.MakeCenteredTitle("摘  要", "SimHei", "36", "360", "360"));
+        b.Append(H.MakeBodyPara("随着短视频平台的快速发展，其对大学生群体的影响日益凸显。本研究探讨短视频对大学生学习行为的双重影响，结合相关调查数据，分析其在碎片化知识获取与注意力分散等方面的作用机制。研究发现，短视频既为大学生拓展了学习资源，也带来了学习投入不足等问题，需引导大学生合理使用短视频工具。"));
+        b.Append(H.MakeKeyPara(true, "短视频；大学生；学习行为；学习投入；注意力分散"));
+        var s2sp = H.MakeSectPr(hdrRomanId, ftrRomanId, NumberFormatValues.LowerRoman, 1);
+        s2sp.Append(new SectionType { Val = SectionMarkValues.NextPage });
+        H.CloseSection(b, s2sp);
+
+        // SECTION 3: English Abstract
+        b.Append(H.MakeAbstractTitle());
+        b.Append(H.MakeAbstractBody());
+        b.Append(H.MakeEngKeyPara());
+        var s3sp = H.MakeSectPr(hdrRomanId, ftrRomanId, NumberFormatValues.LowerRoman, null);
+        s3sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
+        H.CloseSection(b, s3sp);
+
+        // SECTION 4: TOC
+        b.Append(H.MakeCenteredTitle("目  录", "SimSun", "36", "360", "360"));
+        H.AddTOC(b);
+        var s4sp = H.MakeSectPr(hdrRomanId, ftrRomanId, NumberFormatValues.LowerRoman, null);
+        s4sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
+        H.CloseSection(b, s4sp);
+
+        // SECTION 5: Body
+        b.Append(H.MakeH1("导  论"));
+        H.AddBodyParaWithFn(b, "近年来，我国互联网用户规模持续增长，短视频作为新兴的媒介形式，已经成为大学生日常信息获取与娱乐的重要渠道", fnId++, H.FN4());
+        H.AddBodyParaWithFn(b, "。根据中国互联网络信息中心的统计数据，截至2025年6月，我国短视频用户规模已达10.8亿，其中18-24岁的大学生群体占比超过15%", fnId++, H.FN4());
+        H.AddRunToLastPara(b, "。短视频的快速普及，深刻改变了大学生的信息接收习惯，也对其学习行为产生了复杂的影响。");
+        b.Append(H.MakeBodyPara("既有研究多关注短视频的消极影响，如成瘾问题、学业拖延等，但对其积极作用的探讨相对不足，因此本研究从双重影响的视角展开分析，为引导大学生合理使用短视频提供参考。"));
+
+        b.Append(H.MakeH1("1 短视频对大学生学习行为的双重影响"));
+        b.Append(H.MakeH2("1.1 积极影响"));
+
+        b.Append(H.MakeH3("1.1.1 碎片化知识获取"));
+        H.AddBodyParaWithFn(b, "短视频的短时长特征，适配了大学生的碎片化时间，使得他们可以在课间、通勤等零散时间获取知识", fnId++, H.FN2());
+        H.AddRunToLastPara(b, "。不同于传统的长视频课程，短视频将复杂的知识点拆解为1-3分钟的内容，降低了知识获取的门槛，提升了学习的灵活性。例如，很多大学生会通过短视频学习外语单词、实验操作技巧等内容，有效补充了课堂学习的不足。");
+
+        b.Append(H.MakeH3("1.1.2 学习资源的拓展"));
+        b.Append(H.MakeBodyPara("短视频平台汇聚了大量的优质学习资源，涵盖了各个学科领域，打破了传统教育的地域与资源壁垒。来自不同地区的教师、行业专家都可以在平台上分享知识，使得大学生可以接触到课堂之外的优质内容，拓宽了学习的视野。"));
+
+        b.Append(H.MakeH2("1.2 消极影响"));
+
+        b.Append(H.MakeH3("1.2.1 注意力分散问题"));
+        H.AddBodyParaWithFn(b, "短视频平台的算法推荐机制，会根据用户的喜好不断推送感兴趣的内容，容易导致大学生陷入刷不停的状态，分散了学习的注意力", fnId++, H.FN1());
+        H.AddRunToLastPara(b, "。研究显示，短视频成瘾的大学生，其注意力控制能力显著低于普通用户，难以长时间专注于深度学习任务");
+        H.AddFnRefEnd(b, fnId++, H.FN3());
+        H.AddRunToLastPara(b, "。");
+
+        b.Append(H.MakeH3("1.2.2 学习投入不足"));
+        H.AddBodyParaWithFn(b, "过度使用短视频会占用大学生的学习时间，导致学习投入水平下降。王兴超等的研究发现，短视频成瘾程度越高的大学生，其学习投入水平越低，进而影响了学业成绩", fnId++, H.FN1());
+        H.AddRunToLastPara(b, "。很多大学生会在学习过程中频繁刷短视频，打断了学习的连续性，降低了学习的效率。");
+
+        b.Append(H.MakeH1("2 大学生短视频使用与学习行为的现状"));
+        H.AddBodyParaWithFn(b, "为了更直观地了解大学生的短视频使用情况，本研究整理了相关调查数据，如表1所示，短视频成瘾与学习投入、学业成绩均呈显著负相关，说明过度使用短视频会对学习产生负面作用", fnId++, H.FN1());
+        H.AddRunToLastPara(b, "。");
+
+        H.AddTable1(b);
+        H.AddFigure1(b, BASE);
+
+        H.AddBodyParaWithFn(b, "同时，从使用用途来看，大学生使用短视频的主要目的仍以娱乐为主，仅有约23%的用户将其用于知识学习，如图1所示", fnId++, H.FN4());
+        H.AddRunToLastPara(b, "。这说明当前大学生对短视频的学习价值挖掘仍有不足，大部分时间仍用于娱乐消遣。");
+        b.Append(H.MakeBodyPara("综上，短视频对大学生学习行为的影响是双重的，既带来了学习资源的拓展与碎片化学习的便利，也带来了注意力分散、学习投入不足等问题。高校与家庭应引导大学生合理规划短视频使用时间，充分发挥其积极作用，规避消极影响，帮助大学生更好地利用短视频工具提升学习效果。"));
+
+        var s5sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, 1);
+        s5sp.Append(new FootnoteProperties(
+            new FootnotePosition { Val = FootnotePositionValues.PageBottom },
+            new NumberingFormat { Val = NumberFormatValues.Decimal },
+            new NumberingRestart { Val = RestartNumberValues.EachPage },
+            new NumberingStart { Val = 1 }));
+        s5sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
+        H.CloseSection(b, s5sp);
+
+        // SECTION 6: References
+        b.Append(H.MakeH1("参考文献"));
+        H.AddReferences(b);
+        var s6sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, null);
+        s6sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
+        H.CloseSection(b, s6sp);
+
+        // SECTION 7: Appendix
+        b.Append(H.MakeAppendixTitle());
+        var s7sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, null);
+        s7sp.Append(new SectionType { Val = SectionMarkValues.OddPage });
+        H.CloseSection(b, s7sp);
+
+        // SECTION 8: Acknowledgments
+        b.Append(H.MakeAckTitle());
+        b.Append(H.MakeBodyPara("本论文的完成得益于指导教师的悉心指导和同学们的帮助。在论文写作过程中，我学习了文献查阅和数据分析的方法，也认识到自身在学术研究方面的不足。今后将继续努力，不断提升自己的学术素养和研究能力。感谢所有在论文写作过程中给予我支持和帮助的人。"));
+        var s8sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, null);
+        s8sp.Append(new SectionType { Val = SectionMarkValues.NextPage });
+        H.CloseSection(b, s8sp);
+
+        // SECTION 9: Back cover + Grade table
+        H.AddBlankPage(b); H.AddBlankPage(b);
+        var s9sp = H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, NumberFormatValues.Decimal, null);
+        b.Append(s9sp);
+    }
+}
+
+internal static class H
+{
+    public const string SZ_XIAOER = "36";
+    public const string SZ_SANHAO = "32";
+    public const string SZ_SIHAO = "28";
+    public const string SZ_XIAOSI = "24";
+    public const string SZ_WUHAO = "21";
+    public const string SZ_XIAOWU = "18";
+    public const string LINE_125 = "300";
+    public const string SP_H1 = "320";
+    public const string SP_XIAOER = "360";
+    const uint MG_TOP = 1701;
+    const uint MG_BOTTOM = 1418;
+    const uint MG_LEFT = 1418;
+    const uint MG_RIGHT = 1134;
+    const uint PG_W = 11906;
+    const uint PG_H = 16838;
+    public static readonly JustificationValues JC_CENTER = JustificationValues.Center;
+    public static readonly JustificationValues JC_LEFT = JustificationValues.Left;
+    public static readonly JustificationValues JC_RIGHT = JustificationValues.Right;
+
+    static RunProperties MakeRP(string ea, string sz, bool bold = false, bool italic = false)
+    {
+        var rp = new RunProperties(
+            new RunFonts { EastAsia = ea, Ascii = "Times New Roman", HighAnsi = "Times New Roman" },
+            new FontSize { Val = sz }, new FontSizeComplexScript { Val = sz });
+        if (bold) rp.Append(new Bold());
+        if (italic) rp.Append(new Italic());
+        return rp;
+    }
+
+    static RunProperties MakeSupRP()
+    {
+        return new RunProperties(
+            new VerticalTextAlignment { Val = VerticalPositionValues.Superscript },
+            new FontSize { Val = SZ_XIAOWU }, new FontSizeComplexScript { Val = SZ_XIAOWU });
+    }
+
+    static ParagraphProperties MakeBodyPP()
+    {
+        return new ParagraphProperties(
+            new Indentation { FirstLineChars = 200 },
+            new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto });
+    }
+
+    static ParagraphProperties MakeH1PP()
+    {
+        return new ParagraphProperties(
+            new Justification { Val = JC_CENTER },
+            new SpacingBetweenLines { Before = SP_H1, After = SP_H1, Line = LINE_125, LineRule = LineSpacingRuleValues.Auto },
+            new OutlineLevel { Val = 0 });
+    }
+
+    static ParagraphProperties MakeH2PP()
+    {
+        return new ParagraphProperties(
+            new Justification { Val = JC_LEFT },
+            new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto },
+            new OutlineLevel { Val = 1 });
+    }
+
+    static ParagraphProperties MakeH3PP()
+    {
+        return new ParagraphProperties(
+            new Justification { Val = JC_LEFT },
+            new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto },
+            new OutlineLevel { Val = 2 });
+    }
+
+    static ParagraphProperties MakeTitlePP(string before, string after)
+    {
+        return new ParagraphProperties(
+            new Justification { Val = JC_CENTER },
+            new SpacingBetweenLines { Before = before, After = after, Line = LINE_125, LineRule = LineSpacingRuleValues.Auto });
+    }
+
+    static ParagraphProperties MakeKeyPP()
+    {
+        return new ParagraphProperties(
+            new SpacingBetweenLines { Before = "240", Line = LINE_125, LineRule = LineSpacingRuleValues.Auto });
+    }
+
+    static ParagraphProperties MakeRefPP()
+    {
+        return new ParagraphProperties(
+            new Indentation { Hanging = "480" },
+            new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto });
+    }
+
+    static ParagraphProperties MakeCapPP(string after = "120")
+    {
+        return new ParagraphProperties(
+            new Justification { Val = JC_CENTER }, new SpacingBetweenLines { After = after });
+    }
+
+    static PageMargin MakeMargin()
+    {
+        return new PageMargin { Top = (int)MG_TOP, Right = MG_RIGHT, Bottom = (int)MG_BOTTOM, Left = MG_LEFT, Header = 720U, Footer = 720U, Gutter = 0U };
+    }
+
+    static PageSize MakePageSize() { return new PageSize { Width = PG_W, Height = PG_H }; }
+
+    public static Paragraph MakeCenteredTitle(string t, string f, string sz, string b4, string af)
+    {
+        return new Paragraph(MakeTitlePP(b4, af), new Run(MakeRP(f, sz, bold: true), new Text(t) { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeBodyPara(string t)
+    {
+        return new Paragraph(MakeBodyPP(), new Run(MakeRP("SimSun", SZ_XIAOSI), new Text(t) { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeH1(string t)
+    {
+        return new Paragraph(MakeH1PP(), new Run(MakeRP("SimHei", SZ_SANHAO), new Text(t) { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeH2(string t)
+    {
+        return new Paragraph(MakeH2PP(), new Run(MakeRP("SimSun", SZ_SIHAO, bold: true), new Text(t) { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeH3(string t)
+    {
+        return new Paragraph(MakeH3PP(), new Run(MakeRP("SimSun", SZ_XIAOSI, bold: true), new Text(t) { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeKeyPara(bool cn, string kw)
+    {
+        if (cn)
+            return new Paragraph(MakeKeyPP(),
+                new Run(MakeRP("SimHei", SZ_SIHAO, bold: true), new Text("关键词：") { Space = SpaceProcessingModeValues.Preserve }),
+                new Run(MakeRP("SimSun", SZ_XIAOSI), new Text(kw) { Space = SpaceProcessingModeValues.Preserve }));
+        return new Paragraph();
+    }
+
+    public static Paragraph MakeAbstractTitle()
+    {
+        return new Paragraph(MakeTitlePP(SP_XIAOER, SP_XIAOER),
+            new Run(new RunProperties(
+                new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" },
+                new Bold(), new FontSize { Val = SZ_SANHAO }, new FontSizeComplexScript { Val = SZ_SANHAO }),
+                new Text("Abstract") { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeAbstractBody()
+    {
+        return new Paragraph(MakeBodyPP(),
+            new Run(new RunProperties(
+                new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "SimSun" },
+                new FontSize { Val = SZ_XIAOSI }, new FontSizeComplexScript { Val = SZ_XIAOSI }),
+                new Text("With the rapid development of short-video platforms, their impact on college students has become increasingly prominent. This study explores the dual effects of short videos on college students' learning behavior, and analyzes its mechanism in fragmented knowledge acquisition and attention dispersion based on relevant survey data. The study finds that short videos not only expand learning resources for college students, but also bring problems such as insufficient learning engagement. It is necessary to guide college students to use short-video tools rationally.") { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeEngKeyPara()
+    {
+        return new Paragraph(MakeKeyPP(),
+            new Run(new RunProperties(
+                new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" },
+                new Bold(), new FontSize { Val = SZ_SIHAO }, new FontSizeComplexScript { Val = SZ_SIHAO }),
+                new Text("Keywords: ") { Space = SpaceProcessingModeValues.Preserve }),
+            new Run(new RunProperties(
+                new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "SimSun" },
+                new FontSize { Val = SZ_XIAOSI }, new FontSizeComplexScript { Val = SZ_XIAOSI }),
+                new Text("Short-video platforms; College students; Learning behavior; Learning engagement; Attention dispersion") { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static void SetupFootnotes(FootnotesPart part)
+    {
+        var sep = new Footnote { Type = FootnoteEndnoteValues.Separator, Id = -1 };
+        sep.Append(new Paragraph(new ParagraphProperties(new SpacingBetweenLines { After = "0", Line = "240", LineRule = LineSpacingRuleValues.Auto }), new Run(new SeparatorMark())));
+        part.Footnotes!.Append(sep);
+        var cs = new Footnote { Type = FootnoteEndnoteValues.ContinuationSeparator, Id = 0 };
+        cs.Append(new Paragraph(new ParagraphProperties(new SpacingBetweenLines { After = "0", Line = "240", LineRule = LineSpacingRuleValues.Auto }), new Run(new ContinuationSeparatorMark())));
+        part.Footnotes.Append(cs);
+    }
+
+    static void AddFnContent(Body body, int id, string fnText)
+    {
+        var fn = new Footnote { Id = id };
+        fn.Append(new Paragraph(
+            new ParagraphProperties(new SpacingBetweenLines { Line = "240", LineRule = LineSpacingRuleValues.Auto }),
+            new Run(new RunProperties(new VerticalTextAlignment { Val = VerticalPositionValues.Superscript }), new FootnoteReferenceMark()),
+            new Run(MakeRP("SimSun", SZ_XIAOWU), new Text(" " + fnText) { Space = SpaceProcessingModeValues.Preserve })));
+        body.Ancestors().OfType<Document>().First().MainDocumentPart!.FootnotesPart!.Footnotes!.Append(fn);
+    }
+
+    public static void AddFnRefEnd(Body body, int id, string fnText)
+    {
+        var p = body.Elements<Paragraph>().LastOrDefault(); if (p == null) return;
+        p.Append(new Run(MakeSupRP(), new FootnoteReference { Id = id }));
+        AddFnContent(body, id, fnText);
+    }
+
+    public static void AddRunToLastPara(Body body, string text)
+    {
+        var p = body.Elements<Paragraph>().LastOrDefault(); if (p == null) return;
+        p.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text(text) { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static void AddBodyParaWithFn(Body body, string text, int fnId, string fnText)
+    {
+        var para = new Paragraph(MakeBodyPP());
+        para.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text(text) { Space = SpaceProcessingModeValues.Preserve }));
+        para.Append(new Run(MakeSupRP(), new FootnoteReference { Id = fnId }));
+        body.Append(para);
+        AddFnContent(body, fnId, fnText);
+    }
+
+    public static string FN1() => "王兴超, 田芳芳. 大学生短视频成瘾与学业成绩的关系——学习投入的中介作用和学业自我效能感的调节作用[J]. 华南师范大学学报(社会科学版), 2025(1):12-20.";
+    public static string FN2() => "Li Y, Wang H. Effects of short-form video app addiction on academic anxiety and academic engagement: The mediating role of mindfulness[J]. Frontiers in Psychology, 2024, 15:1428813.";
+    public static string FN3() => "Zhang L, Liu M. The effect of short-form video addiction on undergraduates’ academic procrastination: a moderated mediation model[J]. Frontiers in Psychology, 2023, 14:1298361.";
+    public static string FN4() => "中国互联网络信息中心. 第55次中国互联网络发展状况统计报告[R]. 北京: 中国互联网络信息中心, 2025.";
+
+    public static void AddBlankPage(Body body)
+    {
+        body.Append(new Paragraph(new ParagraphProperties(new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto }), new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("") { Space = SpaceProcessingModeValues.Preserve })));
+    }
+
+    public static DocDefaults MakeDocDefaults()
+    {
+        return new DocDefaults(
+            new RunPropertiesDefault(new RunPropertiesBaseStyle(
+                new RunFonts { EastAsia = "SimSun", Ascii = "Times New Roman", HighAnsi = "Times New Roman" },
+                new FontSize { Val = SZ_XIAOSI }, new FontSizeComplexScript { Val = SZ_XIAOSI })),
+            new ParagraphPropertiesDefault(new ParagraphPropertiesBaseStyle(
+                new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto })));
+    }
+
+    public static SectionProperties MakeSectPr(string? hdrId, string? ftrId, NumberFormatValues? nf, int? start)
+    {
+        var sp = new SectionProperties(MakePageSize(), MakeMargin(), new DocGrid { LinePitch = 1 });
+        if (hdrId != null) sp.Append(new HeaderReference { Type = HeaderFooterValues.Default, Id = hdrId });
+        if (ftrId != null) sp.Append(new FooterReference { Type = HeaderFooterValues.Default, Id = ftrId });
+        if (nf != null) { var pnt = new PageNumberType { Format = nf }; if (start.HasValue) pnt.Start = start.Value; sp.Append(pnt); }
+        return sp;
+    }
+
+    public static SectionProperties MakeArabicSectPr(string hdrOdd, string ftrOdd, string hdrEven, string ftrEven, NumberFormatValues? nf, int? start)
+    {
+        var sp = MakeSectPr(hdrOdd, ftrOdd, nf, start);
+        sp.Append(new HeaderReference { Type = HeaderFooterValues.Even, Id = hdrEven });
+        sp.Append(new FooterReference { Type = HeaderFooterValues.Even, Id = ftrEven });
+        return sp;
+    }
+
+    public static void CloseSection(Body body, SectionProperties sp)
+    {
+        var p = body.Elements<Paragraph>().LastOrDefault(); if (p == null) return;
+        var pp = p.Elements<ParagraphProperties>().FirstOrDefault();
+        if (pp == null) { pp = new ParagraphProperties(); p.PrependChild(pp); }
+        pp.Append(sp);
+    }
+
+    public static HeaderPart MakeHeader(MainDocumentPart mp, string text, JustificationValues jc)
+    {
+        var hp = mp.AddNewPart<HeaderPart>();
+        hp.Header = new Header(new Paragraph(new ParagraphProperties(new Justification { Val = jc }),
+            new Run(new RunProperties(new RunFonts { EastAsia = "SimSun", Ascii = "Times New Roman", HighAnsi = "Times New Roman" }, new FontSize { Val = SZ_XIAOWU }, new FontSizeComplexScript { Val = SZ_XIAOWU }),
+                new Text(text) { Space = SpaceProcessingModeValues.Preserve })));
+        hp.Header.Save(); return hp;
+    }
+
+    public static FooterPart MakeFooter(MainDocumentPart mp, JustificationValues jc)
+    {
+        var fp = mp.AddNewPart<FooterPart>();
+        var para = new Paragraph(new ParagraphProperties(new Justification { Val = jc }));
+        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Begin }));
+        para.Append(new Run(new FieldCode(" PAGE ") { Space = SpaceProcessingModeValues.Preserve }));
+        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.End }));
+        fp.Footer = new Footer(para); fp.Footer.Save(); return fp;
+    }
+
+    public static void AddTOC(Body body)
+    {
+        var toc = new Paragraph();
+        toc.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Begin }));
+        toc.Append(new Run(new FieldCode(" TOC \\o \"1-2\" \\h \\z \\u ") { Space = SpaceProcessingModeValues.Preserve }));
+        toc.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Separate }));
+        toc.Append(new Run(new Text("目录将在Word中自动生成，请右键目录→更新域") { Space = SpaceProcessingModeValues.Preserve }));
+        toc.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.End }));
+        body.Append(toc);
+    }
+
+    public static void AddTable1(Body body)
+    {
+        body.Append(new Paragraph(MakeCapPP(), new Run(MakeRP("FangSong", SZ_WUHAO), new Text("表1  大学生短视频使用与学习行为的相关性分析") { Space = SpaceProcessingModeValues.Preserve })));
+
+        var tbl = new Table();
+        tbl.Append(new TableProperties(
+            new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct },
+            new TableBorders(
+                new TopBorder { Val = BorderValues.Single, Size = 12, Space = 0, Color = "000000" },
+                new BottomBorder { Val = BorderValues.Single, Size = 12, Space = 0, Color = "000000" },
+                new LeftBorder { Val = BorderValues.None, Size = 0 }, new RightBorder { Val = BorderValues.None, Size = 0 },
+                new InsideHorizontalBorder { Val = BorderValues.None, Size = 0 }, new InsideVerticalBorder { Val = BorderValues.None, Size = 0 }),
+            new TableLayout { Type = TableLayoutValues.Fixed }, new TableLook { Val = "04A0" }));
+        tbl.Append(new TableGrid(new GridColumn { Width = "2400" }, new GridColumn { Width = "2400" }, new GridColumn { Width = "1600" }, new GridColumn { Width = "1200" }));
+
+        var hr = new TableRow(new TableRowProperties(new TableRowHeight { Val = 400U }));
+        foreach (var hh in new[] { "变量", "与短视频成瘾的相关系数", "显著性", "样本量" })
+            hr.Append(new TableCell(
+                new TableCellProperties(new TableCellBorders(new BottomBorder { Val = BorderValues.Single, Size = 12, Space = 0, Color = "000000" }), new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center }),
+                new Paragraph(new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Line = "260", LineRule = LineSpacingRuleValues.Auto }),
+                    new Run(MakeRP("SimSun", SZ_WUHAO, bold: true), new Text(hh) { Space = SpaceProcessingModeValues.Preserve }))));
+        tbl.Append(hr);
+
+        var rows = new[] { new[] { "学习投入得分", "-0.32", "p<0.01", "1896" }, new[] { "学业成绩", "-0.28", "p<0.01", "1896" } };
+        foreach (var rd in rows)
+        {
+            var row = new TableRow(new TableRowProperties(new TableRowHeight { Val = 380U }));
+            foreach (var ct in rd)
+                row.Append(new TableCell(
+                    new TableCellProperties(new TableCellBorders(new TopBorder { Val = BorderValues.None, Size = 0 }, new BottomBorder { Val = BorderValues.None, Size = 0 }, new LeftBorder { Val = BorderValues.None, Size = 0 }, new RightBorder { Val = BorderValues.None, Size = 0 }), new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center }),
+                    new Paragraph(new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Line = "260", LineRule = LineSpacingRuleValues.Auto }),
+                        new Run(MakeRP("SimSun", SZ_WUHAO), new Text(ct) { Space = SpaceProcessingModeValues.Preserve }))));
+            tbl.Append(row);
+        }
+        body.Append(tbl);
+        body.Append(new Paragraph(new ParagraphProperties(new SpacingBetweenLines { Before = "60", After = "60" })));
+    }
+
+    public static void AddFigure1(Body body, string baseDir)
+    {
+        string imgPath = Path.Combine(baseDir, "input", "2", "photo", "fig1.png");
+        if (!File.Exists(imgPath))
+        {
+            body.Append(new Paragraph(MakeCapPP(), new Run(MakeRP("FangSong", SZ_WUHAO), new Text("图1  大学生短视频使用用途占比（图片缺失）") { Space = SpaceProcessingModeValues.Preserve })));
+            return;
+        }
+        var doc = body.Ancestors().OfType<Document>().First(); var mp = doc.MainDocumentPart!;
+        var ip = mp.AddImagePart(ImagePartType.Png);
+        using (var fs = new FileStream(imgPath, FileMode.Open)) { ip.FeedData(fs); }
+        var rid = mp.GetIdOfPart(ip);
+        long w = 3401600, h = 2551200;
+        var drawing = new Drawing(new DW.Inline(
+            new DW.Extent { Cx = w, Cy = h },
+            new DW.EffectExtent { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
+            new DW.DocProperties { Id = 1U, Name = "图1" },
+            new DW.NonVisualGraphicFrameDrawingProperties(new A.GraphicFrameLocks { NoChangeAspect = true }),
+            new A.Graphic(new A.GraphicData(
+                new PIC.Picture(
+                    new PIC.NonVisualPictureProperties(
+                        new PIC.NonVisualDrawingProperties { Id = 0U, Name = "fig1.png" },
+                        new PIC.NonVisualPictureDrawingProperties()),
+                    new PIC.BlipFill(
+                        new A.Blip { Embed = rid },
+                        new A.Stretch(new A.FillRectangle())),
+                    new PIC.ShapeProperties(
+                        new A.Transform2D(
+                            new A.Offset { X = 0L, Y = 0L },
+                            new A.Extents { Cx = w, Cy = h }),
+                        new A.PresetGeometry { Preset = A.ShapeTypeValues.Rectangle })))
+            { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" }))
+        { DistanceFromTop = 0U, DistanceFromBottom = 0U, DistanceFromLeft = 0U, DistanceFromRight = 0U });
+        body.Append(new Paragraph(new ParagraphProperties(new Justification { Val = JC_CENTER }), new Run(drawing)));
+        body.Append(new Paragraph(MakeCapPP("60"), new Run(MakeRP("FangSong", SZ_WUHAO), new Text("图1  大学生短视频使用用途占比") { Space = SpaceProcessingModeValues.Preserve })));
+    }
+
+    public static void AddReferences(Body body)
+    {
+        body.Append(new Paragraph(MakeRefPP(), new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[1] 王兴超, 田芳芳. 大学生短视频成瘾与学业成绩的关系——学习投入的中介作用和学业自我效能感的调节作用[J]. 华南师范大学学报(社会科学版), 2025(1):12-20.") { Space = SpaceProcessingModeValues.Preserve })));
+
+        var r2 = new Paragraph(MakeRefPP());
+        r2.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[2] Li Y, Wang H. ") { Space = SpaceProcessingModeValues.Preserve }));
+        r2.Append(new Run(MakeRP("SimSun", SZ_XIAOSI, italic: true), new Text("Effects of short-form video app addiction on academic anxiety and academic engagement: The mediating role of mindfulness") { Space = SpaceProcessingModeValues.Preserve }));
+        r2.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[J]. Frontiers in Psychology, 2024, 15:1428813.") { Space = SpaceProcessingModeValues.Preserve }));
+        body.Append(r2);
+
+        var r3 = new Paragraph(MakeRefPP());
+        r3.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[3] Zhang L, Liu M. ") { Space = SpaceProcessingModeValues.Preserve }));
+        r3.Append(new Run(MakeRP("SimSun", SZ_XIAOSI, italic: true), new Text("The effect of short-form video addiction on undergraduates’ academic procrastination: a moderated mediation model") { Space = SpaceProcessingModeValues.Preserve }));
+        r3.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[J]. Frontiers in Psychology, 2023, 14:1298361.") { Space = SpaceProcessingModeValues.Preserve }));
+        body.Append(r3);
+
+        body.Append(new Paragraph(MakeRefPP(), new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[4] 中国互联网络信息中心. 第55次中国互联网络发展状况统计报告[R]. 北京: 中国互联网络信息中心, 2025.") { Space = SpaceProcessingModeValues.Preserve })));
+    }
+
+    public static Paragraph MakeAppendixTitle()
+    {
+        return new Paragraph(
+            new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Before = SP_H1, After = SP_H1, Line = LINE_125, LineRule = LineSpacingRuleValues.Auto }, new OutlineLevel { Val = 0 }),
+            new Run(MakeRP("SimSun", SZ_SANHAO, bold: true), new Text("附  录") { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeAckTitle()
+    {
+        return new Paragraph(
+            new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Before = SP_H1, After = SP_H1, Line = LINE_125, LineRule = LineSpacingRuleValues.Auto }, new OutlineLevel { Val = 0 }),
+            new Run(MakeRP("SimSun", SZ_SANHAO, bold: true), new Text("致  谢") { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static void AddComments(MainDocumentPart mp, Body body)
+    {
+        var cp = mp.AddNewPart<WordprocessingCommentsPart>(); cp.Comments = new Comments();
+        var cep = mp.AddNewPart<WordprocessingCommentsExPart>();
+        using (var w = new StreamWriter(cep.GetStream(FileMode.Create)))
+            w.Write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w15:commentsEx xmlns:w15=\"http://schemas.microsoft.com/office/word/2012/wordml\" xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" mc:Ignorable=\"w15\"/>");
+        var cip = mp.AddNewPart<WordprocessingCommentsIdsPart>();
+        using (var w = new StreamWriter(cip.GetStream(FileMode.Create)))
+            w.Write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w16cid:commentsIds xmlns:w16cid=\"http://schemas.microsoft.com/office/word/2016/wordml/cid\"/>");
+        var pp = mp.AddNewPart<WordprocessingPeoplePart>();
+        pp.People = new DocumentFormat.OpenXml.Office2013.Word.People(); pp.People.Save();
+
+        AddOneComment(cp, body, 0, "请确认目录是否可自动更新（右键目录→更新域）");
+        AddOneComment(cp, body, 1, "请确认三线表格式是否规范（顶线、栏目线为粗线，底线为粗线，无竖线）");
+        AddOneComment(cp, body, 2, "请确认奇偶页页眉页脚是否规范（奇数页右对齐，偶数页左对齐）");
+        AddOneComment(cp, body, 3, "请确认脚注是否规范（自动脚注，数字上标，字体）");
+        cp.Comments.Save();
+    }
+
+    static void AddOneComment(WordprocessingCommentsPart cp, Body body, int id, string text)
+    {
+        cp.Comments!.Append(new Comment(new Paragraph(new Run(new Text(text) { Space = SpaceProcessingModeValues.Preserve }))) { Id = id.ToString(), Author = "ban", Initials = "ban", Date = DateTime.Now });
+        var fp = body.Elements<Paragraph>().FirstOrDefault();
+        if (fp != null) { fp.PrependChild(new CommentRangeStart { Id = id.ToString() }); fp.Append(new CommentRangeEnd { Id = id.ToString() }); fp.Append(new Run(new CommentReference { Id = id.ToString() })); }
+    }
+}
