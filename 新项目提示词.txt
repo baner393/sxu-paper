@@ -1,0 +1,110 @@
+在D:\360MoveData\Users\ban\Desktop\school_about\word_about\sxuyear\paper put here\preprocessor目录下创建processor.skill。后续的所有开发也都在此目录下进行。识别后的文件夹应该以论文标题命名，里面放置论文的markdown文件和图片文件夹（里面按顺序放图片）
+
+###识别与回填结构
+# DOCX ⇄ Markdown 论文编辑 Skill
+
+目标：
+将 DOCX 学术论文转换为“可逆Markdown”，供AI编辑后再稳定回填原DOCX。
+
+核心原则：
+- AI禁止直接阅读DOCX
+- 程序负责结构提取
+- AI只编辑Markdown内容
+- Markdown必须可逆回填
+- 保留block锚点
+- 尽量低token
+
+仅提取以下内容：
+- 封面个人信息
+- 中文摘要
+- 英文摘要
+- 目录
+- 正文标题
+- 正文内容
+- 图片
+- 表格
+- 公式
+- 参考文献
+
+忽略：
+- 页眉页脚
+- 页码
+- section
+- footnote
+- 批注
+- 修订
+- 样式细节
+- 复杂OOXML语义
+
+工作流：
+
+DOCX
+→ OOXML解析
+→ 提取指定内容
+→ 转换为带锚点Markdown
+→ AI编辑Markdown
+→ Markdown回填DOCX
+
+Markdown必须为“结构锚定Markdown”。
+
+每个正文块必须生成稳定锚点：
+
+<!-- block:182 -->
+
+标题、正文、图片、表格、公式均必须绑定block id。
+
+示例：
+
+<!-- block:182 -->
+# 1 绪论
+
+正文内容……
+
+图片处理：
+- 导出到 assets/images/
+- markdown中使用相对路径
+- 保持顺序
+
+示例：
+
+<!-- image:img_12 -->
+![图3-1](assets/images/img_12.png)
+
+图3-1 系统结构图
+
+表格处理：
+直接转markdown table。
+
+公式处理：
+必须：
+OMML → LaTeX
+
+示例：
+
+<!-- equation:eq_8 -->
+
+$$
+E = mc^2
+$$
+
+参考文献：
+保持原顺序输出。
+
+AI编辑规则：
+- 禁止删除block锚点
+- 禁止修改image id
+- 禁止修改equation id
+- 禁止破坏标题层级
+- 仅允许编辑正文内容
+
+回填规则：
+通过block id定位原DOCX段落。
+仅替换内容，不重建全文结构。
+
+最终目标：
+建立：
+“DOCX ⇄ 可逆Markdown”
+论文编辑中间层。
+
+重点：
+稳定、低token、可回填、可长期复用。
