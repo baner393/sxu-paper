@@ -45,6 +45,7 @@ class DocxExtractor:
         self.block_id = 0
         self.image_map = {}  # rId → image_path
         self.blocks = []
+        self.block_map = {}  # block_id → body 元素索引
         self.title = "untitled"
         self._parse_rels()
 
@@ -61,9 +62,12 @@ class DocxExtractor:
         except:
             pass
 
-    def _next_id(self, prefix='p'):
+    def _next_id(self, prefix='p', element_index=None):
         self.block_id += 1
-        return f"{prefix}{self.block_id}"
+        bid = f"{prefix}{self.block_id}"
+        if element_index is not None:
+            self.block_map[bid] = element_index
+        return bid
 
     def _block_comment(self, bid):
         return f"<!-- block:{bid} -->"
@@ -97,7 +101,7 @@ class DocxExtractor:
             pass
         return len(text) > 0
 
-    def _extract_paragraph(self, para, in_table=False):
+    def _extract_paragraph(self, para, element_index=None, in_table=False):
         """提取段落: 标题/正文/图片/公式"""
         text = self._get_text(para).strip()
         pPr = para.find(q('w:pPr'))
@@ -110,9 +114,8 @@ class DocxExtractor:
                 for blip in blips:
                     embed = blip.get(f'{{{NSMAP["r"]}}}embed')
                     if embed and embed in self.image_map:
-                        img_id = f"img_{self.block_id + 1}"
                         img_path = self.image_map[embed]
-                        bid = self._next_id('img')
+                        bid = self._next_id('img', element_index)
                         self.blocks.append(f"{self._block_comment(bid)}\n![图]({img_path})")
                         return
 
@@ -120,7 +123,7 @@ class DocxExtractor:
         math_paras = para.findall('.//' + q('m:oMathPara'))
         math_elements = para.findall('.//' + q('m:oMath'))
         if math_paras or math_elements:
-            eq_id = self._next_id('eq')
+            eq_id = self._next_id('eq', element_index)
             self.blocks.append(f"{self._block_comment(eq_id)}\n\n$$\\text{{(公式待转换)}}$$\n")
             return
 
@@ -144,17 +147,17 @@ class DocxExtractor:
                 level = int(style_val)
 
             if is_heading and text:
-                bid = self._next_id('h')
+                bid = self._next_id('h', element_index)
                 prefix = '#' * min(level, 3)
                 self.blocks.append(f"{self._block_comment(bid)}\n{prefix} {text}")
                 return
 
         # 普通正文段落
         if text:
-            bid = self._next_id('p')
+            bid = self._next_id('p', element_index)
             self.blocks.append(f"{self._block_comment(bid)}\n{text}")
 
-    def _extract_table(self, tbl):
+    def _extract_table(self, tbl, element_index=None):
         """提取表格为 Markdown table"""
         rows = tbl.findall('.//' + q('w:tr'))
         if not rows:
@@ -176,7 +179,7 @@ class DocxExtractor:
         if not md_rows:
             return
 
-        bid = self._next_id('tbl')
+        bid = self._next_id('tbl', element_index)
         lines = [self._block_comment(bid)]
         # Header row
         header = md_rows[0]
@@ -274,76 +277,75 @@ class DocxExtractor:
             # ── 中文摘要区 ──
             if in_range(i, 'abstract_zh_start', 'abstract_en_start'):
                 if t == '摘  要':
-                    bid = self._next_id('h')
+                    bid = self._next_id('h', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n## {t}")
                     continue
                 if '关键词' in t:
-                    bid = self._next_id('kw')
+                    bid = self._next_id('kw', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n**{t}**")
                     zh_abs_done = True
                 elif not zh_abs_done and t:
-                    bid = self._next_id('abs')
+                    bid = self._next_id('abs', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n{t}")
                 continue
 
             # ── 英文摘要区 ──
             if in_range(i, 'abstract_en_start', 'toc_start'):
                 if t == 'Abstract':
-                    bid = self._next_id('h')
+                    bid = self._next_id('h', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n## {t}")
                     continue
                 if 'Keywords' in t or 'Key words' in t:
-                    bid = self._next_id('kw')
+                    bid = self._next_id('kw', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n**{t}**")
                     en_abs_done = True
                 elif not en_abs_done and t:
-                    bid = self._next_id('abs')
+                    bid = self._next_id('abs', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n{t}")
                 continue
 
             # ── 正文区 ──
             if in_range(i, 'body_start', 'ref_start'):
                 if t in ('参考文献', '致  谢', '附  录'):
-                    bid = self._next_id('h')
+                    bid = self._next_id('h', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n# {t}")
                     continue
                 if e['tag'] == 'p' and t:
-                    self._extract_paragraph(e['el'])
+                    self._extract_paragraph(e['el'], element_index=i)
                 elif e['tag'] == 'tbl':
-                    self._extract_table(e['el'])
+                    self._extract_table(e['el'], element_index=i)
 
             # ── 参考文献区 ──
             if in_range(i, 'ref_start', 'appendix_start'):
                 if t == '参考文献':
-                    bid = self._next_id('h')
+                    bid = self._next_id('h', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n# {t}")
                     continue
                 if t and (t[0] == '[' or t.startswith('[')):
-                    bid = self._next_id('ref')
+                    bid = self._next_id('ref', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n{t}")
                 elif t and not t.startswith('<!--'):
-                    # 参考文献可能跨多行，追加到最后一个 ref block
-                    bid = self._next_id('ref')
+                    bid = self._next_id('ref', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n{t}")
 
             # ── 附录/致谢/封底区 ──
             if in_range(i, 'appendix_start', 'ack_start'):
                 if t == '附  录':
-                    bid = self._next_id('h')
+                    bid = self._next_id('h', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n# {t}")
                     continue
                 if t:
-                    self._extract_paragraph(e['el'])
+                    self._extract_paragraph(e['el'], element_index=i)
 
             if i >= anchors.get('ack_start', 99999):
                 if t == '致  谢':
-                    bid = self._next_id('h')
+                    bid = self._next_id('h', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n# {t}")
                     continue
                 if t:
-                    self._extract_paragraph(e['el'])
+                    self._extract_paragraph(e['el'], element_index=i)
                 if e['tag'] == 'tbl':
-                    self._extract_table(e['el'])
+                    self._extract_table(e['el'], element_index=i)
 
         # 补: 如果没找到锚点, 宽松匹配
         if not self.blocks:
@@ -381,6 +383,7 @@ class DocxExtractor:
             'source_docx': self.docx_path.name,
             'title': self.title,
             'block_count': len(self.blocks),
+            'block_map': self.block_map,  # block_id → body元素索引
             'extracted_at': datetime.now().isoformat()
         }
         (out_dir / 'meta.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding='utf-8')

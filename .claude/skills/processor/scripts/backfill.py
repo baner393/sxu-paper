@@ -3,7 +3,7 @@ Markdown → DOCX 回填器
 用法: python backfill.py <markdown_dir> [original_docx]
 
 从 paper.md + meta.json 读取编辑后的内容，回填到原 DOCX（生成 _filled.docx）。
-仅替换正文/表格/公式内容，保留原 DOCX 所有格式。
+通过 block_map 定位每个 block 在 DOCX body 中的元素索引，精确回填。
 
 依赖: python-docx (pip install python-docx)
 """
@@ -14,10 +14,10 @@ import sys
 import shutil
 from pathlib import Path
 from docx import Document
-from docx.shared import Pt
 
 # ── 锚点正则 ──
 BLOCK_RE = re.compile(r'<!--\s*block:(\w+)\s*-->')
+
 
 def parse_markdown(md_path):
     """解析 paper.md, 返回 {block_id: content} 字典"""
@@ -26,23 +26,87 @@ def parse_markdown(md_path):
 
     # 以 block 注释分割
     parts = BLOCK_RE.split(text)
-    # parts = ['before', 'p182', '\ncontent...', 'h5', '\n# title...', ...]
     for i in range(1, len(parts), 2):
         block_id = parts[i]
         content = parts[i + 1] if i + 1 < len(parts) else ''
-        # 清理内容
         content = content.strip()
-        # 去掉 Markdown 标题标记符用于纯文本替换
-        # (回填到 DOCX 时, 字体格式由原段落属性决定)
         blocks[block_id] = content
 
     return blocks
 
 
+def clean_text_from_markdown(content):
+    """从 Markdown 内容中提取纯文本，去掉标题标记、图片链接等"""
+    lines = content.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith('<!--'):
+            continue
+        if line.startswith('!['):
+            continue
+        # 去掉 # 标题标记
+        line = re.sub(r'^#{1,3}\s+', '', line)
+        cleaned_lines.append(line)
+    return ' '.join(cleaned_lines)
+
+
+def parse_markdown_table(content):
+    """解析 Markdown 表格，返回二维列表"""
+    md_rows = [line for line in content.split('\n') if line.strip().startswith('|')]
+    data_rows = []
+    for md_row in md_rows:
+        if '---' in md_row:
+            continue  # skip separator
+        cells = [c.strip() for c in md_row.split('|')[1:-1]]
+        data_rows.append(cells)
+    return data_rows
+
+
+def replace_paragraph_text(para, new_text):
+    """替换段落文本，保留原格式"""
+    ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    # 清空所有 run 的文本
+    for r in para.iter(f'{{{ns}}}r'):
+        for t in r.iter(f'{{{ns}}}t'):
+            t.text = ''
+    # 写入第一个 run
+    first_r = para.find(f'{{{ns}}}r')
+    if first_r is not None:
+        first_t = first_r.find(f'{{{ns}}}t')
+        if first_t is not None:
+            first_t.text = new_text
+            first_t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+
+
+def replace_table_content(tbl, data_rows):
+    """替换表格内容"""
+    ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    trs = tbl.findall(f'{{{ns}}}tr')
+    for ri, tr in enumerate(trs):
+        if ri >= len(data_rows):
+            break
+        tcs = tr.findall(f'{{{ns}}}tc')
+        for ci, tc in enumerate(tcs):
+            if ci >= len(data_rows[ri]):
+                break
+            # 清空单元格内文本
+            for r in tc.iter(f'{{{ns}}}r'):
+                for t in r.iter(f'{{{ns}}}t'):
+                    t.text = ''
+            first_r = tc.find(f'{{{ns}}}r')
+            if first_r is not None:
+                first_t = first_r.find(f'{{{ns}}}t')
+                if first_t is not None:
+                    first_t.text = data_rows[ri][ci]
+
+
 def backfill(docx_path, md_dir, output_path=None):
     """回填 Markdown 内容到 DOCX"""
     if output_path is None:
-        output_path = str(Path(docx_path).parent / f"{Path(docx_path).stem}_filled.docx")
+        output_path = str(Path(docx_path).parent / "_backfill_temp.docx")
 
     # 复制原文件
     shutil.copy2(docx_path, output_path)
@@ -55,108 +119,75 @@ def backfill(docx_path, md_dir, output_path=None):
         print(f"ERROR: 未找到 {md_path}")
         sys.exit(1)
 
-    blocks = parse_markdown(md_path)
+    new_blocks = parse_markdown(md_path)
 
-    # 验证
+    # 读取 meta.json
     if meta_path.exists():
         meta = json.loads(meta_path.read_text(encoding='utf-8'))
+        block_map = meta.get('block_map', {})
         original_count = meta.get('block_count', 0)
-        current_count = len(blocks)
-        if current_count != original_count:
-            print(f"WARNING: block 数量变化 ({original_count} → {current_count}), 可能编辑有误")
+    else:
+        print("ERROR: 未找到 meta.json")
+        sys.exit(1)
+
+    print(f"原始 block 数: {original_count}, 编辑后 block 数: {len(new_blocks)}")
 
     # 打开复制后的文档
     doc = Document(output_path)
     body = doc.element.body
 
-    # 遍历 body 元素, 匹配 block ID
-    nsmap = {
-        'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
-    }
+    # 获取 body 的所有子元素列表
+    body_children = list(body)
 
-    block_index = 0
-    block_keys = list(blocks.keys())
+    # 统计
+    replaced = 0
+    cleared = 0
+    skipped = 0
 
-    for child in body:
-        tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-
-        if tag == 'p':
-            # 段落: 匹配 block:p{id} 或 block:h{id}
-            if block_index >= len(block_keys):
-                break
-            bid = block_keys[block_index]
-            content = blocks[bid]
-
-            # 清理 Markdown 标记行和空行
-            lines = content.split('\n')
-            cleaned_lines = []
-            for line in lines:
-                line = line.strip()
-                if line and not line.startswith('<!--') and not line.startswith('!['):
-                    # 去掉 # 标题标记
-                    line = re.sub(r'^#{1,3}\s+', '', line)
-                    cleaned_lines.append(line)
-
-            new_text = ' '.join(cleaned_lines)
-            if new_text:
-                # 替换段落中的所有文本
-                for r in child.iter(f'{{{nsmap["w"]}}}r'):
-                    for t in r.iter(f'{{{nsmap["w"]}}}t'):
-                        t.text = ''
-                # 写入第一个 run
-                first_r = child.find(f'{{{nsmap["w"]}}}r')
-                if first_r is not None:
-                    first_t = first_r.find(f'{{{nsmap["w"]}}}t')
-                    if first_t is not None:
-                        first_t.text = new_text
-                        first_t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
-
-            block_index += 1
-
-        elif tag == 'tbl':
-            # 表格: 匹配 block:tbl{id}
-            if block_index >= len(block_keys):
-                break
-            bid = block_keys[block_index]
-            content = blocks[bid]
-
-            # 解析 Markdown table
-            md_rows = [line for line in content.split('\n') if line.strip().startswith('|')]
-            data_rows = []
-            for md_row in md_rows:
-                if '---' in md_row:
-                    continue  # skip separator
-                cells = [c.strip() for c in md_row.split('|')[1:-1]]
-                data_rows.append(cells)
-
-            if data_rows:
-                # 查找表格行
-                trs = child.findall(f'{{{nsmap["w"]}}}tr')
-                for ri, tr in enumerate(trs):
-                    if ri >= len(data_rows):
-                        break
-                    tcs = tr.findall(f'{{{nsmap["w"]}}}tc')
-                    for ci, tc in enumerate(tcs):
-                        if ci >= len(data_rows[ri]):
-                            break
-                        # 替换单元格内文本
-                        for r in tc.iter(f'{{{nsmap["w"]}}}r'):
-                            for t in r.iter(f'{{{nsmap["w"]}}}t'):
-                                t.text = ''
-                        first_r = tc.find(f'{{{nsmap["w"]}}}r')
-                        if first_r is not None:
-                            first_t = first_r.find(f'{{{nsmap["w"]}}}t')
-                            if first_t is not None:
-                                first_t.text = data_rows[ri][ci]
-
-            block_index += 1
-
-        elif tag == 'sectPr':
-            # 跳过节属性
+    # 处理每个原始 block
+    for bid, elem_index in block_map.items():
+        if elem_index >= len(body_children):
+            print(f"WARNING: block {bid} 的元素索引 {elem_index} 超出范围")
             continue
 
+        element = body_children[elem_index]
+        tag = element.tag.split('}')[-1] if '}' in element.tag else element.tag
+
+        if bid in new_blocks:
+            # block 被保留，替换内容
+            content = new_blocks[bid]
+
+            if tag == 'p':
+                new_text = clean_text_from_markdown(content)
+                if new_text:
+                    replace_paragraph_text(element, new_text)
+                    replaced += 1
+            elif tag == 'tbl':
+                data_rows = parse_markdown_table(content)
+                if data_rows:
+                    replace_table_content(element, data_rows)
+                    replaced += 1
+        else:
+            # block 被删除，清空内容
+            if tag == 'p':
+                replace_paragraph_text(element, '')
+                cleared += 1
+            elif tag == 'tbl':
+                replace_table_content(element, [])
+                cleared += 1
+
     doc.save(output_path)
-    print(f"回填完成: {output_path}")
+
+    # 重命名
+    if '_backfill_temp.docx' in output_path:
+        final_path = str(Path(docx_path).parent / f"{Path(docx_path).stem}_filled.docx")
+        if Path(final_path).exists():
+            Path(final_path).unlink()
+        Path(output_path).rename(final_path)
+        output_path = final_path
+
+    print(f"回填完成: 替换 {replaced} 个, 清空 {cleared} 个")
+    print(f"输出: {output_path}")
     return output_path
 
 
@@ -181,7 +212,6 @@ def main():
     if len(sys.argv) > 2:
         docx_path = sys.argv[2]
     else:
-        # 尝试在 common locations 查找
         possible = [
             f"paper put here/just put here/{docx_name}",
             docx_name
