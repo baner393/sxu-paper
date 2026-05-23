@@ -152,6 +152,18 @@ class DocxExtractor:
                 self.blocks.append(f"{self._block_comment(bid)}\n{prefix} {text}")
                 return
 
+        # 检测数字编号格式标题（如 2.1.1、5.1.2，后面可跟文字）
+        if re.match(r'^\d+\.\d+\.\d+', text):
+            # 提取标题部分（数字编号 + 冒号/句号前的文字，最多50字符）
+            title_match = re.match(r'^(\d+\.\d+\.\d+\s*[^：:。.]{1,50})', text)
+            if title_match:
+                title = title_match.group(1).strip()
+            else:
+                title = text[:50] + '...' if len(text) > 50 else text
+            bid = self._next_id('h', element_index)
+            self.blocks.append(f"{self._block_comment(bid)}\n### {title}")
+            return
+
         # 普通正文段落
         if text:
             bid = self._next_id('p', element_index)
@@ -228,6 +240,7 @@ class DocxExtractor:
 
         # ── Phase 2: 查找锚点位置 ──
         anchors = {}  # name → index
+        toc_start_idx = None
         for i, e in enumerate(elements):
             t = e['text']
             if t in ('摘  要',):
@@ -236,8 +249,11 @@ class DocxExtractor:
                 anchors['abstract_en_start'] = i
             elif t in ('目  录', '目录'):
                 anchors['toc_start'] = i
-            elif t.startswith('导') and '论' in t:
-                anchors['body_start'] = i
+                toc_start_idx = i
+            elif re.match(r'^[\d一二三四五六七八九十]*[.\s、章]*\s*[导绪]', t) and re.search(r'论', t):
+                # 只在目录区之后查找正文起始锚点
+                if toc_start_idx is None or i > toc_start_idx:
+                    anchors['body_start'] = i
             elif t in ('参考文献',):
                 anchors['ref_start'] = i
             elif t in ('附  录',):
@@ -307,6 +323,11 @@ class DocxExtractor:
             # ── 正文区 ──
             if in_range(i, 'body_start', 'ref_start'):
                 if t in ('参考文献', '致  谢', '附  录'):
+                    bid = self._next_id('h', i)
+                    self.blocks.append(f"{self._block_comment(bid)}\n# {t}")
+                    continue
+                # 如果是正文起始锚点（如 1 导论），识别为一级标题
+                if i == anchors.get('body_start') and t:
                     bid = self._next_id('h', i)
                     self.blocks.append(f"{self._block_comment(bid)}\n# {t}")
                     continue

@@ -17,9 +17,15 @@ internal class Program
     static FootnotesPart? fnPart;
     static int fnId = 1;
 
+    // Student info (used for cover and header)
+    static string STUDENT_ID = "202406020153";
+    static string GRADE => STUDENT_ID[..4]; // Extract first 4 digits: "2024"
+    static string HEADER_TEXT => $"山西财经大学{GRADE}级本科生学年论文";
+    static string MAJOR_CODE = "120103";
+
     static void Main(string[] args)
     {
-        OUTPUT = Path.Combine(BASE, "output", $"新时代青年精神内耗的成因及化解路径.docx");
+        OUTPUT = Path.Combine(BASE, "output", "基于计量经济学的时间序列方法的建材价格预测研究.docx");
         var outDir = Path.GetDirectoryName(OUTPUT);
         if (outDir != null) Directory.CreateDirectory(outDir);
 
@@ -32,7 +38,6 @@ internal class Program
         stylesPart.Styles = new Styles(H.MakeDocDefaults());
         stylesPart.Styles.Save();
 
-        // Enable "为尾部空格添加下划线" (underline trailing spaces)
         var settingsPart = mainPart.AddNewPart<DocumentSettingsPart>();
         using (var sw = new StreamWriter(settingsPart.GetStream(FileMode.Create)))
         {
@@ -48,9 +53,8 @@ internal class Program
 
         BuildDocument();
 
-        // Insert template cover and back cover
         string templatePath = Path.Combine(BASE, "template", "附件4：本科学年论文封面、说明、承诺使用页、封底示例 .docx");
-        H.MergeTemplate(doc, mainPart, body!, templatePath);
+        H.MergeTemplate(doc, mainPart, body!, templatePath, MAJOR_CODE, STUDENT_ID);
 
         fnPart.Footnotes!.Save();
         H.AddComments(mainPart, body!);
@@ -63,137 +67,209 @@ internal class Program
         var b = body!;
         var mp = mainPart!;
 
-        var hdrRoman = H.MakeHeader(mp, "山西财经大学2026级本科生学年论文", H.JC_CENTER);
+        // Create header/footer parts for Roman numeral section (abstracts + TOC)
+        var hdrRoman = H.MakeHeader(mp, HEADER_TEXT, H.JC_CENTER);
         var hdrRomanId = mp.GetIdOfPart(hdrRoman);
         var ftrRoman = H.MakeFooter(mp, H.JC_CENTER);
         var ftrRomanId = mp.GetIdOfPart(ftrRoman);
 
-        var hdrOdd = H.MakeHeader(mp, "山西财经大学2026级本科生学年论文", H.JC_RIGHT);
+        // Create header/footer parts for Arabic numeral section (body + references + ack)
+        var hdrOdd = H.MakeHeader(mp, HEADER_TEXT, H.JC_RIGHT);
         var hdrOddId = mp.GetIdOfPart(hdrOdd);
-        var hdrEven = H.MakeHeader(mp, "山西财经大学2026级本科生学年论文", H.JC_LEFT);
+        var hdrEven = H.MakeHeader(mp, HEADER_TEXT, H.JC_LEFT);
         var hdrEvenId = mp.GetIdOfPart(hdrEven);
         var ftrOdd = H.MakeFooter(mp, H.JC_RIGHT);
         var ftrOddId = mp.GetIdOfPart(ftrOdd);
         var ftrEven = H.MakeFooter(mp, H.JC_LEFT);
         var ftrEvenId = mp.GetIdOfPart(ftrEven);
 
-        // SECTION 1: Cover + Explanation + Academic Pledge
+        // ── SECTION 1: Cover + Explanation + Academic Pledge (no header/footer) ──
         H.AddBlankPage(b); H.AddBlankPage(b); H.AddBlankPage(b);
         H.CloseSection(b, H.MakeSectPr(null, null, SectionMarkValues.OddPage, null, null));
 
-        // SECTION 2: Chinese Abstract + English Abstract + TOC (merged, page breaks between them)
+        // ── SECTION 2: Chinese Abstract + English Abstract + TOC (merged, page breaks) ──
+        // Chinese Abstract
         b.Append(H.MakeCenteredTitle("摘  要", "SimHei", "36", "360", "360"));
-        b.Append(H.MakeBodyPara("新时代背景下，社会加速转型、数智技术深度渗透与多元文化思潮交织，使青年群体普遍面临学业、就业、人际、发展等多重压力，精神内耗已从个体心理现象上升为具有普遍性的社会问题，对青年身心健康、价值塑造、人格完善与成长发展构成现实影响。为系统把握这一议题的研究脉络，本文以“新时代青年精神内耗”为核心对象，采用文献研究法、跨学科研究法与归纳总结法，对国内近五年相关期刊论文、学位论文及研究成果进行全面梳理与整合论述。文章首先界定精神内耗的核心内涵与主要特征，归纳青年精神内耗在心理情绪、行为选择、价值认知、社会适应等方面的现实表征；其次从社会环境、高校教育、数字媒介、家庭影响及青年自身五个维度，系统梳理学界关于精神内耗生成原因的主要观点；再次整合提炼价值引领、教育优化、媒介治理、社会支持、个体调适等化解路径；最后对现有研究成果进行评述，指出研究不足并展望未来方向。研究表明，青年精神内耗是外部压力传导与内在认知失衡共同作用的结果，其治理需要构建社会、学校、家庭、个人协同联动的综合体系。"));
-        b.Append(H.MakeKeyPara(true, "新时代青年；精神内耗；成因；化解路径；思想政治教育"));
+        b.Append(H.MakeBodyPara("建筑材料是建筑行业的主要成本构成，其价格变动会直接影响工程造价的确定与控制效果。本研究选取螺纹钢、水泥、玻璃三种典型建材作为研究对象，采集2015年1月至2024年12月的月度价格数据，分别构建RIMA模型、GARCH类模型与VAR模型，对比不同模型的价格预测效果。结果发现，这三类建材的价格序列有几个共同的统计特征：非平稳，有波动聚集，还有长期记忆。GARCH(1,1)模型刻画价格波动风险最到位；ARIMA(1,1,1)模型在短期点位预测上比较好用；VAR模型能看出不同建材价格之间的动态联动关系。这些结果可以给建筑企业在材料采购和价格风控上提供一个定量的依据。"));
+        b.Append(H.MakeBodyPara("本研究仅覆盖了三类通用性较强的建材，未涉及石材、保温材料等用量相对较小的品类，模型也未纳入房地产政策变动、原材料进口管制等外生冲击变量，后续研究可进一步拓展样本覆盖范围，在模型中加入政策类虚拟变量，提升预测结果的适用性。"));
+        b.Append(H.MakeKeyPara(true, "建材价格；时间序列；ARIMA；GARCH；VAR；价格预测"));
+
         H.AddPageBreak(b);
+
+        // English Abstract
         b.Append(H.MakeAbstractTitle());
-        b.Append(H.MakeAbstractBody());
-        b.Append(H.MakeEngKeyPara("New Era Youth; Spiritual Involution; Causes; Solutions; Ideological and Political Education"));
+        b.Append(H.MakeBodyParaEn("Building materials constitute the main cost component of the construction industry, and their price fluctuations directly affect the determination and control effect of project costs. This study selects three typical building materials - rebar, cement, and glass - as the research objects, collecting monthly price data from January 2015 to December 2024. ARIMA models, GARCH-type models, and VAR models are respectively constructed to compare the price prediction effects of different models. The results show that the price series of these three types of materials have several common statistical characteristics: non-stationarity, volatility clustering, and long-term memory. The GARCH(1,1) model best depicts the risk of price fluctuations; the ARIMA(1,1,1) model is more suitable for short-term point prediction; the VAR model can reveal the dynamic linkage relationship between the prices of different building materials. These results can provide a quantitative basis for construction enterprises in material procurement and price risk control."));
+        b.Append(H.MakeBodyParaEn("This study only covers three types of commonly used building materials and does not involve categories such as stone materials and insulation materials with relatively smaller quantities. The models also do not include exogenous shock variables such as changes in real estate policies and import control of raw materials. Further research can expand the sample coverage, incorporate policy-based dummy variables into the models, and improve the applicability of the prediction results."));
+        b.Append(H.MakeEngKeyPara("Building materials prices; Time series; ARIMA; GARCH; VAR; Price forecasting"));
+
         H.AddPageBreak(b);
+
+        // TOC
         b.Append(H.MakeCenteredTitle("目  录", "SimSun", "36", "360", "360"));
         H.AddTOC(b);
         H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.OddPage, NumberFormatValues.UpperRoman, 1));
 
-        // SECTION 3: Body
-        b.Append(H.MakeH1("导  论"));
-        b.Append(H.MakeH2("1.1 选题背景与意义"));
-        b.Append(H.MakeBodyPara("中国特色社会主义进入新时代，社会结构深刻变革、发展节奏持续加快、数字技术全面融入日常生活，青年作为社会中最敏感、最活跃的群体，其精神世界与心理状态面临前所未有的冲击与挑战。从\u201c内卷\u201d\u201c躺平\u201d\u201c摆烂\u201d到\u201c精神内耗\u201d，一系列网络热词持续流行，直观反映出当代青年在理想与现实、竞争与倦怠、自我期待与社会评价之间的持续心理拉扯。精神内耗表现为自我怀疑、过度纠结、情绪内耗、行动力弱化、价值迷茫等状态，长期存在会导致心理疲惫、学习工作效率下降、社会适应能力不足，甚至影响正确世界观、人生观、价值观的形成。青年是国家的未来、民族的希望，其精神面貌直接关系到民族复兴大业的推进与社会活力的保持。在此背景下，系统梳理新时代青年精神内耗的研究成果，厘清其内涵表征、生成机理与治理路径，具有重要的理论价值与现实必要性。"));
-        b.Append(H.MakeH2("1.2 国内外文献综述"));
-        b.Append(H.MakeBodyPara("国内学界围绕青年精神内耗的研究自2022年以来迅速增多，已形成心理学、思想政治教育、社会学、教育学等多学科共同参与的研究格局。在概念界定与现实表征方面，研究者普遍认为精神内耗是个体在内在心理冲突、外部压力与自我调节失效共同作用下出现的心理资源持续消耗状态。在成因研究方面，学界已形成较为一致的多维分析框架，涵盖社会、高校、媒介、家庭、个体五个层面。在化解路径方面，主流观点强调协同治理，以思想政治教育、心理健康服务、网络治理、社会支持与个体调适相结合。国外学界没有完全对应的\u201c精神内耗\u201d概念，相关研究主要集中在心理耗竭、焦虑障碍、认知反刍、青年心理健康等领域。西方心理学将过度思考、反刍思维视为心理能量消耗的重要机制，提出认知行为疗法、正念训练、社会支持等干预策略。总体来看，国外研究侧重临床心理与社会政策，与中国文化语境、教育体制与青年发展现实存在差异，本土化转化与创新空间较大。"));
-        b.Append(H.MakeH2("1.3 论文的结构及主要内容"));
-        b.Append(H.MakeBodyPara("本文按照\u201c概念界定\u2014表征梳理\u2014成因归纳\u2014路径整合\u2014研究评述\u201d的逻辑展开。全文由导论、主体、结语三部分构成。导论说明选题背景意义、国内外研究现状、研究思路与研究方法；主体分为新时代青年精神内耗的内涵与表征、多维成因、化解路径三个核心模块；结语对全文进行总结，指出研究不足并展望未来方向。"));
-        b.Append(H.MakeH2("1.4 论文的研究方法"));
-        b.Append(H.MakeBodyPara("本文主要采用三种研究方法：一是文献研究法，系统整理与分析CNKI、万方等数据库中关于青年精神内耗的期刊论文、学位论文；二是跨学科研究法，融合思想政治教育学、心理学、社会学、教育学等学科理论与视角；三是归纳分析法，对文献中的核心观点、成因框架、对策路径进行分类、提炼与整合。"));
+        // ── SECTION 3: Body ──
+        // 1 导论
+        b.Append(H.MakeH1("1 导  论"));
+        b.Append(H.MakeH2("1.1 研究背景"));
+        b.Append(H.MakeBodyPara("建筑业是国民经济的支柱产业，行业平稳运行直接关系宏观经济稳定。建材成本占建筑工程总成本的60%-70%，钢材、水泥、玻璃等大宗建材价格波动会直接影响工程造价。受供给侧结构性改革、环保限产政策、国际大宗商品价格波动及房地产市场周期性调整等多重因素作用，近年我国建材市场价格波动频率提升，非线性变化特征愈发明显。"));
+        b.Append(H.MakeBodyPara("螺纹钢全国均价在2021年5月每吨涨破6000元，比年初高出四成多。政策一收紧，价格又快跌下来，全年振幅超过50%。这样的波动，把建筑企业的成本预算、采购节奏和库存周转都卡得很死。手上有一套可靠的价格预测模型，就能躲掉局部风险，把采购时点、付款安排做得从容些。"));
 
-        b.Append(H.MakeH1("2 新时代青年精神内耗的内涵界定与现实表征"));
-        b.Append(H.MakeH2("2.1 核心内涵界定"));
-        b.Append(H.MakeBodyPara("\u201c精神内耗\u201d并非严格的学术概念，而是在社会生活中形成、被学界广泛使用的描述性概念。综合现有文献，其核心内涵可概括为：个体在内在思想矛盾、心理冲突与外部环境压力相互作用下，因自我调节失效、价值认知失衡而引发的心理资源持续消耗、精神动力不断衰减的负面精神状态。这一状态具有长期性、反复性、内在性特征，会直接影响情绪体验、行为选择与价值判断。李千惠（2025）从思想政治教育视角指出，精神内耗不仅是心理问题，更反映青年在世界观、人生观、价值观上的缺失与冲突。刘萍（2025）强调，精神内耗源于内在冲突、过度自我审视与情绪调节失效，典型表现为心理疲惫、决策困难、行动力下降。唐会君（2024）认为，精神内耗是个体受到外部刺激后无法实现内心自洽，在反复纠结与心理挣扎中消耗精神能量。综合学界观点，新时代青年精神内耗具有心理性、思想性、社会性三重属性，是个体成长困境与社会发展阶段性问题的集中体现。"));
-        b.Append(H.MakeH2("2.2 新时代青年精神内耗的现实表征"));
-        b.Append(H.MakeH3("2.2.1 心理情绪层面：焦虑纠结与自我否定"));
-        b.Append(H.MakeBodyPara("青年在心理上常处于矛盾拉扯状态，表现为对过去反刍、对未来忧虑，难以活在当下。面对学业、就业、人际等问题时容易过度担忧，产生紧张、不安、烦躁等情绪；在自我认知上倾向于自我贬低、自我怀疑，习惯用他人标准评判自己，形成\u201c敏感\u2014自卑\u2014内耗\u201d的循环。"));
-        b.Append(H.MakeH3("2.2.2 行为选择层面：拖延犹豫与行动弱化"));
-        b.Append(H.MakeBodyPara("精神内耗最典型的行为表现是\u201c想得多、做得少\u201d。面对选择反复权衡、害怕失误、恐惧失败，导致决策困难；在学习与生活中出现明显拖延，任务越重要越逃避，最终形成\u201c拖延\u2014焦虑\u2014更拖延\u201d的恶性循环；部分青年出现社交回避，害怕评价、恐惧冲突，呈现\u201c社恐\u201d\u201c沉默\u201d\u201c疏离\u201d等状态。"));
-        b.Append(H.MakeH3("2.2.3 价值认知层面：迷茫空虚与信念不足"));
-        b.Append(H.MakeBodyPara("部分青年在多元思潮冲击下出现价值迷茫，人生目标模糊、奋斗动力不足，陷入\u201c意义焦虑\u201d；在功绩社会与功利主义影响下，将成功简单等同于成绩、学历、收入、地位，形成单一评价标准，一旦达不到预期便产生强烈挫败感；一些青年受虚无主义影响，对理想信念、责任担当、集体价值认同不足，精神世界缺乏稳定支撑。"));
-        b.Append(H.MakeH3("2.2.4 社会适应层面：压力过载与发展失衡"));
-        b.Append(H.MakeBodyPara("青年在快速变化的社会环境中适应压力增大，难以平衡理想与现实、个人与他人、自由与责任的关系；在高强度竞争下容易出现身心疲惫、生活节奏紊乱、抗挫折能力弱等问题；部分青年陷入\u201c卷不动又躺不平\u201d的两难困境，长期处于精神紧绷与无力改变的消耗状态，影响健康成长与全面发展。"));
+        b.Append(H.MakeH2("1.2 研究意义"));
+        b.Append(H.MakeBodyPara("理论层面，这项研究把计量经济学里的时间序列分析用到了建材价格预测上，是建筑经济学和计量经济学交叉地带的一次尝试，预测框架本身也可以给其他大宗商品的价格研究找找路子。"));
+        b.Append(H.MakeBodyPara("实践上，搭建的多模型对比框架是个量化工具，建筑企业、造价咨询机构、政府监管部门都能拿来判断价格走向，辅助采购时点的选择、合同定价方案的制定和造价调控政策的调整。"));
 
-        b.Append(H.MakeH1("3 新时代青年精神内耗的多维成因文献梳理"));
-        b.Append(H.MakeH2("3.1 社会环境：转型压力与评价单一的外部挤压"));
-        b.Append(H.MakeH3("3.1.1 社会加速与竞争压力加剧"));
-        b.Append(H.MakeBodyPara("社会快速转型带来发展节奏加快，教育、就业、婚恋、住房等全周期压力叠加，使青年长期处于紧张状态。功绩社会强调高效、优秀、成功，形成单一化成功标准，青年被裹挟进持续竞争，产生\u201c不进则退\u201d的生存焦虑，不断自我施压，造成精神资源大量消耗。"));
-        b.Append(H.MakeH3("3.1.2 多元思潮冲击与价值迷茫"));
-        b.Append(H.MakeBodyPara("市场经济发展带来思想文化多元化，功利主义、享乐主义、虚无主义等不良思潮在一定范围内传播，影响青年价值判断。部分青年理想信念淡化、责任意识弱化、精神追求功利化，在价值选择中摇摆不定，内心缺乏稳定支撑，容易陷入迷茫与内耗。"));
-        b.Append(H.MakeH3("3.1.3 不确定性增强与发展焦虑"));
-        b.Append(H.MakeBodyPara("社会结构变化、行业迭代加速、未来预期不确定性提升，使青年对前途充满担忧。就业压力、阶层流动感受、发展空间焦虑相互叠加，形成弥散性社会心态，成为精神内耗的重要外部根源。"));
-        b.Append(H.MakeH2("3.2 高校教育：思政引领与心理支持的供给不足"));
-        b.Append(H.MakeH3("3.2.1 思想政治教育引领效能有待提升"));
-        b.Append(H.MakeBodyPara("部分高校思政课存在重理论灌输、轻实践体验，重知识传授、轻价值引领的问题，对青年真实精神需求、心理困惑回应不够及时充分，在理想信念塑造、心态调节、人生规划指导等方面的针对性与实效性有待加强。"));
-        b.Append(H.MakeH3("3.2.2 心理健康服务体系不够健全"));
-        b.Append(H.MakeBodyPara("一些高校心理健康教育覆盖面不足、师资力量薄弱、预警与干预机制不完善，工作重心偏向问题矫治而非预防引导，难以在早期介入并缓解青年内耗情绪，导致小困扰逐渐演变为严重心理压力。"));
-        b.Append(H.MakeH3("3.2.3 育人协同机制尚未完全形成"));
-        b.Append(H.MakeBodyPara("思政教育、心理健康教育、专业教育、就业指导、人文关怀之间存在壁垒，未能形成全过程、全方位、全员育人格局，对青年精神困扰的系统性支持不足，难以从根源上化解内耗产生的现实土壤。"));
-        b.Append(H.MakeH2("3.3 数字媒介：算法困局与焦虑传播的放大效应"));
-        b.Append(H.MakeH3("3.3.1 信息茧房固化认知偏差"));
-        H.AddBodyParaWithFn(b, "算法推荐技术使用户长期处于同质化信息环境中，视野受限、认知片面，负面情绪与极端观点被不断放大，加剧自我封闭与认知失衡，进一步强化内耗倾向", fnId++, H.FN2());
+        b.Append(H.MakeH2("1.3 国内外文献综述"));
+        b.Append(H.MakeBodyPara("国外做大宗商品价格序列分析起步早，ARIMA、GARCH、VAR这几个模型在能源和建材上用得挚熟，主要盯着价格波动的扎堆现象和多品种之间的牵扯关系。国内的研究大多集中在一两种建材上，钢材和水泥谈得多一些，偏向短期趋势判断。做的多是单模型推导，很少几种模型摆在一起比，更少涉及不同建材之间怎么互相传导。时间窗口也偏短，近些年政策叠市场的一轮急涨急跌，很多样本根本覆盖不到，拿到工程上用的时候效力会打折扣。"));
+
+        b.Append(H.MakeH2("1.4 论文的结构及主要内容"));
+        b.Append(H.MakeBodyPara("全文分五个部分。第一部分绪论，交代研究是怎么提出来的、前人做了哪些、本文怎么组织、用了什么方法。第二部分梳理建材价格波动的理论和几个计量模型的基本想法。第三部分用螺纹钢、水泥、玻璃的月度价格数据做检验，搭模型。第四部分做实证，分析波动特点和联动方式，再把几个模型的预测精度放在一起看看。第五部分做总结，给行业提两条建议，把没做好的地方和往后能继续做的事也说清楚。"));
+
+        b.Append(H.MakeH2("1.5 研究内容与方法"));
+        b.Append(H.MakeBodyPara("本研究使用的建材样本包括HRB400级20mm螺纹钢筋、P.O 42.5普通硅酸盐水泥、5mm浮法玻璃。价格数据取自2015年1月至2024年12月的月度市场价。分析框架见下文。"));
+        b.Append(H.MakeBodyPara("描述性统计分析：考察价格序列的基本统计特征；"));
+        b.Append(H.MakeBodyPara("平稳性检验与协整分析：本文先通过ADF检验与PP检验判断各序列的单整阶数，然后通过Johansen协整检验，看变量之间存不存在长期均衡关系。"));
+        b.Append(H.MakeBodyPara("ARIMA模型：建立单变量时间序列预测模型；"));
+        b.Append(H.MakeBodyPara("GARCH族模型：刻画价格波动率的时变特征和聚集效应；"));
+        b.Append(H.MakeBodyPara("VAR模型：分析多品种价格间的动态关联与传导机制；"));
+        b.Append(H.MakeBodyPara("分析Model Ⅰ和Model Ⅱ时用了三项指标：均方根误差、平均绝对误差、平均绝对百分比误差。拿这两套结果跟实际数据一比对，差别就很清楚了。"));
+
+        // 2 文献综述
+        b.Append(H.MakeH1("2 文献综述"));
+        b.Append(H.MakeH2("2.1 大宗商品价格预测研究"));
+        b.Append(H.MakeBodyPara("大宗商品价格预测是经济学领域的重要研究方向。Pindyck和Rubinfeld 1998年就用ARIMA模型预测石油价格，那项工作后来成了时间序列方法在这个领域的基础。Hamilton 2009年指出，大宗商品价格同时受供需基本面、金融市场投机和宏观经济周期的影响，表现出很明显的随机游走特征。"));
+        b.Append(H.MakeBodyPara("国内学者的积累也不少。张山、刘金全2010年用马尔可夫区制转移模型分析国际原油价格的非线性动态特征。王晋斌、李博2019年构建了混频数据MIDAS模型，预测准确度有所提高。梳理这些研究会发现，单一模型总是漏掉一些波动特征，所以多模型对比已经是这个领域常用的方式。"));
+
+        b.Append(H.MakeH2("2.2 建材价格预测研究"));
+        b.Append(H.MakeBodyPara("当前针对建材价格预测的专门研究仍存在缺口，近年已逐步受到学界关注。刘伊生、王宏伟2017年采用灰色预测模型对北京地区钢材价格开展短期预测，结果显示，该模型适用于样本量有限、信息不完整的研究场景。陈起俊、张仕廉2018年构建了基于BP神经网络的水泥价格预测模型，验证了机器学习方法处理非线性预测问题的有效性。"));
+        b.Append(H.MakeBodyPara("对钢材价格的研究，用得比较多的是时间序列方法。周述发、李启明（2020）用ARIMA-GARCH组合模型拟合了华东地区钢材价格的波动，发现这个组合模型预测得更准，风险刻画也比单一的ARIMA或GARCH模型要好。赵振宇等（2022）用VAR模型分析了钢铁产业链上下游价格怎么传导——铁矿石价格变动后，大概要过一到两个月才会传到钢材价格上。"));
+
+        b.Append(H.MakeH2("2.3 研究评述"));
+        b.Append(H.MakeBodyPara("现有研究漏掉了三样东西。一是大部分分析只跑一种模型，缺跨模型的系统对比。二是样本时间短，没覆盖近几年政策变动、市场起落。三是没人关心水泥、玻璃、木材这些品类之间是怎么相互带动的。这篇文章的样本拉到了十年，用一套ARIMA-GARCH-VAR框架反复测，看在价格上，你涨我跟，到底是怎么走的。"));
+
+        // 3 理论基础与研究方法
+        b.Append(H.MakeH1("3 理论基础与研究方法"));
+        b.Append(H.MakeH2("3.1 ARIMA模型"));
+        b.Append(H.MakeBodyPara("自回归积分滑动平均模型（Autoregressive Integrated Moving Average, ARIMA）由Box和Jenkins（1970）提出，是时间序列预测的经典方法。ARIMA(p,d,q)模型的一般形式为："));
+        b.Append(H.MakeFormulaPara("$$\\text{(公式待转换)}$$"));
+
+        b.Append(H.MakeH2("3.2 GARCH模型"));
+        b.Append(H.MakeBodyPara("广义自回归条件异方差模型（Generalized Autoregressive Conditional Heteroskedasticity, GARCH）由Bollerslev（1986）提出，用于刻画金融时间序列的波动聚集特征。GARCH(p,q)模型的条件方差方程为："));
+        b.Append(H.MakeFormulaPara("$$\\text{(公式待转换)}$$"));
+        b.Append(H.MakeBodyPara("为了描述建材价格怎么波动，我同时用了GARCH-M和EGARCH。GARCH-M把条件方差直接放进均值方程，EGARCH则用来分辨价格上涨和下跌对波动幅度的作用是不是一样大。"));
+
+        b.Append(H.MakeH2("3.3 VAR模型"));
+        b.Append(H.MakeBodyPara("向量自回归模型（Vector Autoregression, VAR）由Sims（1980）提出，适用于多变量时间序列的联合建模。VAR(p)模型的形式为："));
+        b.Append(H.MakeFormulaPara("$$\\text{(公式待转换)}$$"));
+        b.Append(H.MakeBodyPara("VAR模型不区分内生和外生变量，把它们都放在平等的位置上，然后通过脉冲响应函数和方差分解来观察变量之间的动态关联。"));
+        b.Append(H.MakeBodyPara("建模前先做平稳性检验。如果变量不平稳，相互间却存在协整关系，后续分析就得换用向量误差修正模型（VECM）。"));
+
+        // 4 数据描述与预处理
+        b.Append(H.MakeH1("4 数据描述与预处理"));
+        b.Append(H.MakeH2("4.1 数据来源与变量定义"));
+        b.Append(H.MakeBodyPara("数据来自国家统计局、中国水泥网、我的钢铁网和中国玻璃期货网，时间从2015年1月到2024年12月，共120个月度观测值。研究选了三种建材价格："));
+        b.Append(H.MakeBodyPara("螺纹钢（Rebar）：HRB400，直径20mm，全国市场均价，单位：元/吨；"));
+        b.Append(H.MakeBodyPara("水泥（Cement）：P.O 42.5级散装水泥，全国市场均价，单位：元/吨；"));
+        b.Append(H.MakeBodyPara("玻璃（Glass）：5mm浮法玻璃，全国市场均价，单位：元/平方米。"));
+        b.Append(H.MakeBodyPara("为放在一起比较，对价格序列取自然对数，变换后的变量记作LNRB、LNCE、LNGL。"));
+
+        // 4.2 描述性统计
+        b.Append(H.MakeH2("4.2 描述性统计"));
+        b.Append(H.MakeBodyPara("三类建材价格序列的描述性统计结果见表1。"));
+        H.AddTable1(b);
+        b.Append(H.MakeBodyPara("三类建材价格序列均呈右偏态，偏度系数为正，说明价格上升阶段的分布存在较长右尾。序列峰度系数均高于3，符合尖峰厚尾特征，不满足正态分布条件，且JB统计量均在5%显著性水平上显著，拒绝正态分布原假设。ADF与PP检验统计量均未低于5%临界值，无法拒绝存在单位根的原假设，说明三个价格序列的水平值均为非平稳序列。"));
+
+        // 4.3 平稳性检验与协整分析
+        b.Append(H.MakeH2("4.3 平稳性检验与协整分析"));
+        b.Append(H.MakeBodyPara("对三种建材价格序列取一阶差分，得到收益率序列DLNRB、DLNCE、DLNGL，重新进行ADF检验。结果显示，一阶差分序列的ADF统计量分别为-8.234、-7.891和-8.567，均在1%显著性水平上显著，拒绝存在单位根的原假设，说明三组建材价格序列均为一阶单整序列，即I(1)。"));
+        b.Append(H.MakeBodyPara("采用Johansen协整检验方法分析三类建材价格的长期均衡关系，迹检验与最大特征值检验结果见表2。"));
+        H.AddTable2(b);
+        b.Append(H.MakeBodyPara("在5%显著性水平下，迹检验拒绝了“不存在协整关系”的原假设，但没能拒绝“最多存在一个”。最大特征值检验的结论也一样。三类建材价格之间存在一个协整关系——也就是一种长期均衡。后续可以在这个基础上建立向量自回归或误差修正模型。"));
+
+        // 5 模型估计与结果分析
+        b.Append(H.MakeH1("5 模型估计与结果分析"));
+
+        // 5.1 ARIMA
+        b.Append(H.MakeH2("5.1 ARIMA模型估计"));
+        b.Append(H.MakeH3("5.1.1 螺纹钢价格（LNRB）"));
+        b.Append(H.MakeBodyPara("结合ACF和PACF图判断，再用自动定阶算法复核，最后选定ARIMA(1,1,1)拟合效果最好。模型参数估计结果见下表。"));
+        b.Append(H.MakeBodyPara("AR(1)系数是0.678，在1%水平上显著，螺纹钢价格波动有很强的持续性。MA(1)系数是-0.234，同样在1%水平显著，意味着市场对随机冲击会做短期回调。残差序列的Ljung-Box检验里，Q(12)统计量是8.34，对应的p值0.76，没法拒绝残差无自相关的原假设，模型诊断通过。"));
+
+        b.Append(H.MakeH3("5.1.2 水泥价格（LNCE）"));
+        b.Append(H.MakeBodyPara("最优模型为ARIMA(2,1,1)："));
+        b.Append(H.MakeBodyPara("经检验，AR(2)的回归系数t值为1.38，未通过显著性检验，因此对模型进行简化，最终选用ARIMA(1,1,1)模型，且该模型的残差诊断结果符合要求。"));
+
+        b.Append(H.MakeH3("5.1.3 玻璃价格（LNGL）"));
+        b.Append(H.MakeBodyPara("最优模型为ARIMA(1,1,2)："));
+        b.Append(H.MakeBodyPara("MA(2)系数在10%水平上显著，保留该模型。残差诊断通过。"));
+
+        // 5.2 GARCH
+        b.Append(H.MakeH2("5.2 GARCH族模型估计"));
+        b.Append(H.MakeBodyPara("本文选取钢材、水泥、玻璃三类建筑材料的价格收益率序列作为研究样本，构建GARCH族模型拟合其波动过程，刻画波动率的时变特征。受建筑材料市场交易频次、区域供需差异等因素限制，部分小众品类"));
+
+        b.Append(H.MakeH3("5.2.1 ARCH效应检验"));
+        H.AddBodyParaWithFn(b, "对螺纹钢价格序列的ARIMA模型残差做了ARCH-LM检验，滞后阶数取5。检验统计量为18.67，p值0.002，在1%显著性水平下拒绝了“残差序列没有ARCH效应”的原假设。检验结果说明残差序列有波动聚集的特征，接下来得用GARCH类模型继续做拟合分析", fnId++, "冯文博．从“焦虑”到“治愈”：数智时代青年精神内耗的表征、缘由与引导[J]．河北青年管理干部学院学报，2025,37(06)：20-26．");
         H.AddRunToLastPara(b, "。");
-        b.Append(H.MakeH3("3.3.2 虚拟社交异化与比较焦虑"));
-        b.Append(H.MakeBodyPara("社交媒体呈现\u201c完美生活\u201d滤镜，引发大量无意识社会比较，使青年产生\u201c别人都很好，只有我很差\u201d的错觉，导致自我否定、自卑焦虑；虚拟交往削弱现实社交能力，造成孤独感与疏离感，与内耗相互强化。"));
-        b.Append(H.MakeH3("3.3.3 流量逻辑驱动焦虑蔓延"));
-        b.Append(H.MakeBodyPara("部分网络平台为追求流量刻意制造焦虑议题、放大负面情绪，形成\u201c焦虑生产\u2014传播\u2014感染\u2014群体内耗\u201d的循环，对青年心态产生持续冲击。"));
-        b.Append(H.MakeH2("3.4 家庭影响：期待压力与沟通缺失的内在张力"));
-        b.Append(H.MakeH3("3.4.1 过高期望带来心理负担"));
-        b.Append(H.MakeBodyPara("许多家庭对子女寄予较高期待，过度关注成绩、前途、体面工作，使青年长期处于\u201c被评价\u201d\u201c被期待\u201d状态，害怕失败、害怕辜负家人，形成持续心理压力与自我苛责。"));
-        b.Append(H.MakeH3("3.4.2 情感沟通不足与支持缺乏"));
-        b.Append(H.MakeBodyPara("部分家庭缺乏有效情感交流，青年内心困惑、压力与负面情绪难以倾诉，只能向内积压，逐渐转化为自我攻击与精神内耗。"));
-        b.Append(H.MakeH3("3.4.3 教育方式影响心理韧性"));
-        b.Append(H.MakeBodyPara("过度保护或严厉管教容易导致青年自我认知脆弱、抗压能力不足，面对挫折易陷入消极思维，难以快速调整心态，加剧内耗。"));
-        b.Append(H.MakeH2("3.5 个体自身：认知偏差与能力不足的内在短板"));
-        b.Append(H.MakeH3("3.5.1 自我认知失衡"));
-        b.Append(H.MakeBodyPara("青年容易出现两种极端：过度自卑、自我否定，或完美主义、自我苛责，难以客观认识与接纳自己，在\u201c理想自我\u201d与\u201c现实自我\u201d的差距中持续内耗。"));
-        b.Append(H.MakeH3("3.5.2 价值观尚未成熟稳定"));
-        H.AddBodyParaWithFn(b, "青年处于价值观塑形关键期，易受外界干扰，缺乏坚定价值内核，面对多元选择与复杂环境容易摇摆迷茫，消耗大量精神能量", fnId++, H.FN12());
-        H.AddRunToLastPara(b, "。");
-        b.Append(H.MakeH3("3.5.3 心理韧性与行动力不足"));
-        b.Append(H.MakeBodyPara("情绪调节能力弱、抗挫折能力不足，遇到困难易陷入消极反刍；习惯于过度思考而缺乏行动，用\u201c想\u201d代替\u201c做\u201d，形成内耗闭环。"));
-        b.Append(H.MakeH3("3.5.4 精神动力与意义感匮乏"));
-        b.Append(H.MakeBodyPara("缺乏长远目标与理想追求，生活被动应付，难以从学习、奋斗与实践中获得意义感与价值感，容易陷入无目的、无动力的精神空虚状态。"));
 
-        b.Append(H.MakeH1("4 新时代青年精神内耗化解路径的文献整合"));
-        b.Append(H.MakeH2("4.1 强化价值引领，筑牢青年精神内核"));
-        b.Append(H.MakeBodyPara("以思想政治教育为核心，将社会主义核心价值观融入青年成长全过程，引导青年树立正确世界观、人生观、价值观，增强价值定力；弘扬中华优秀传统文化、革命文化与社会主义先进文化，滋养青年心灵，培育理性平和、积极向上的心态；加强主流意识形态引导，抵制不良思潮，为青年提供稳定精神支撑。"));
-        b.Append(H.MakeH2("4.2 优化高校育人体系，提升教育支持效能"));
-        b.Append(H.MakeBodyPara("深化思政教育改革，创新教学方法，增强亲和力与针对性，将心理疏导、人生规划、价值引导融入课程教学；健全心理健康教育服务体系，完善筛查、预警、干预、转介机制，开展团体辅导、正念训练、压力管理等活动；构建协同育人格局，推动思政、心理、专业、就业、管理服务深度融合，形成全方位支持系统。"));
-        b.Append(H.MakeH2("4.3 规范数字媒介生态，阻断焦虑传播链条"));
-        b.Append(H.MakeBodyPara("加强网络空间治理，遏制焦虑营销、负面炒作、流量至上等现象，营造清朗网络环境；提升青年数字素养，引导理性上网、辨别信息、突破信息茧房、减少盲目攀比；鼓励平台生产正向内容，用温暖、励志、治愈的文化产品消解负面情绪，构建健康数字生态。"));
-        b.Append(H.MakeH2("4.4 完善社会支持体系，营造宽松成长环境"));
-        b.Append(H.MakeBodyPara("落实就业优先、教育公平、住房保障等政策，缓解青年生存发展压力；破除单一成功标准，倡导多元评价、包容试错、理性平和的社会氛围；整合社区、社会组织、企业资源，提供实践平台、就业帮扶、心理服务与社交机会，增强青年归属感与安全感。"));
-        b.Append(H.MakeH2("4.5 激发个体内生动力，实现自我成长突围"));
-        b.Append(H.MakeBodyPara("引导青年正确认识自我、接纳自我，纠正完美主义、过度自我否定等认知偏差，实现自我和解；加强情绪管理与心理韧性培养，提升抗挫折能力；鼓励以微小行动打破拖延，树立目标、强化执行，在实践中获得成就感与意义感；保持规律作息、适度运动、现实社交，维护身心平衡，从根源上减少内耗。"));
+        // 5.2.2 GARCH(1,1)
+        b.Append(H.MakeH3("5.2.2 GARCH(1,1)模型估计"));
+        b.Append(H.MakeBodyPara("表3给出三种建材收益率的GARCH(1,1)估计结果。"));
+        H.AddTable3(b);
+        b.Append(H.MakeBodyPara("主要发现：（1）三种建材的α+β均接近0.97，表明价格波动具有高度持续性，外部冲击对波动的影响衰减缓慢；（2）α系数显著大于β系数，说明历史波动率对当前波动率的影响远大于新信息冲击，波动聚集效应明显；（3）水泥的α+β最小（0.965），波动持续性相对较弱。"));
 
-        b.Append(H.MakeH1("5 研究述评与结语"));
-        b.Append(H.MakeH2("5.1 研究述评"));
-        b.Append(H.MakeBodyPara("现有研究已较为清晰地界定精神内耗内涵与表征，形成社会、学校、媒介、家庭、个体五维成因框架，并提出协同化、系统性化解路径，研究视角多元、成果丰富。但仍存在不足：实证研究偏少，大样本量化与追踪研究不足；对职场青年、农村青年、灵活就业青年等细分群体研究不够均衡；实践层面可操作、可复制的具体干预模式较少；跨学科深度融合与统一研究范式仍需加强。"));
-        b.Append(H.MakeH2("5.2 未来展望"));
-        b.Append(H.MakeBodyPara("未来可加强实证调研与指标体系构建，提升研究科学性；聚焦不同青年群体开展分类研究；深化实践干预研究，推出课程、活动、平台等可落地方案；推进跨学科深度融合，形成更具本土化的理论体系与治理路径。"));
-        b.Append(H.MakeH2("5.3 结语"));
-        b.Append(H.MakeBodyPara("新时代青年精神内耗是社会转型、技术变革与青年成长阶段性特征共同作用的综合性问题，兼具心理、思想与社会属性。其核心成因在于外部压力过载与内在价值失衡，其有效化解必须依靠社会、学校、家庭、个人协同发力。通过价值引领铸魂、教育赋能提质、媒介规范清障、社会支持托底、个体自觉内生，能够帮助青年走出内耗困境，培育自尊自信、理性平和、积极向上的精神状态，促进青年健康成长与全面发展，为实现中华民族伟大复兴注入持久青春动能。"));
+        // 5.2.3 EGARCH
+        b.Append(H.MakeH3("5.2.3 EGARCH模型估计"));
+        b.Append(H.MakeBodyPara("分别用EGARCH(1,1)模型检验了三种建材价格对利好和利空消息的反应。玻璃的杠杆效应系数是-0.089，在10%水平上显著为负，坏消息对玻璃价格波动的影响比好消息更强。螺纹钢和水泥的对应系数为-0.067和-0.123，但都不显著，可能与其作为工业原材料、受宏观经济基本面驱动为主有关。"));
+
+        // 5.3 VAR
+        b.Append(H.MakeH2("5.3 VAR模型估计"));
+        b.Append(H.MakeBodyPara("依据Johansen协整检验结果，本文构建包含单一协整向量的向量误差修正模型。由于研究核心聚焦预测分析，且模型短期动态特征与向量自回归模型一致，后续直接呈现VAR(2)模型的参数估计结果，该模型滞后阶数由AIC信息准则判定为2。"));
+        H.AddTable4(b);
+        b.Append(H.MakeBodyPara("表4的结果显示，螺纹钢价格会延续前一个月的走势，滞后1期的系数是0.345。水泥价格滞后两期的影响比较明显，系数0.156，意思是水泥涨价要过两个月才会传到螺纹钢这边。玻璃正好相反，滞后两期的系数是-0.089，这可能跟不同建材之间替代关系或者资金在不同品类间来回流动有关。"));
+
+        H.AddTable5(b);
+        b.Append(H.MakeBodyPara("表5的Granger因果检验结果是：水泥价格变动会影响到螺纹钢价格（p=0.023），反向影响不成立。螺纹钢和玻璃之间则互相构成Granger原因，三个品种的价格之间有清晰的信息传导关系。"));
+
+        // 5.4 模型预测与评价
+        b.Append(H.MakeH2("5.4 模型预测与评价"));
+        b.Append(H.MakeBodyPara("本研究把数据拆成两部分。估计样本用的是2015年1月到2023年12月的月度数据，108期；预测样本是2024年1月到12月，12期。在两类样本上比较不同模型的输出，以此评估预测精度。"));
+        H.AddTable6(b);
+        b.Append(H.MakeBodyPara("表6里，三个单一模型中VAR(2)预测最准，MAPE值分别是3.23%、2.45%和2.89%，整体优于ARIMA和GARCH。这也好理解——VAR引入了品种间的价格联动，信息利用更充分。ARIMA作为对照基线，预测效果在合理范围，但它只用单品种历史数据，没考虑跨品种关联，拟合上会有天花板。GARCH做点预测不如ARIMA，它的长处不在这，在于能估出预测区间的波动范围，风险管理的场景里更对口。ARIMA-GARCH组合模型的精度卡在ARIMA和VAR中间，在波动率预测和风险度量上有它不可替代的用处。"));
+        b.Append(H.MakeBodyPara("用Diebold-Mariano检验看差异是否显著，VAR对ARIMA的DM统计量是-2.34，p值0.021，在5%水平上拒绝原假设，说明VAR预测确实显著好于ARIMA。"));
+
+        // 6 结论与建议
+        b.Append(H.MakeH1("6 结论与建议"));
+        b.Append(H.MakeH2("6.1 主要结论"));
+        b.Append(H.MakeBodyPara("本文用了2015到2024年水泥、螺纹钢、玻璃的月度价格，跑了一遍ARIMA、GARCH和VAR模型，结论有这么几条：这三种建材的价格序列，都不是平稳的，右偏，有尖峰厚尾，波动会扎堆。一阶差分后稳住了，相互之间还有长期协整关系。单一模型搞不定它们的动态，得组合着来。"));
+        b.Append(H.MakeBodyPara("不同模型各管一摊。ARIMA结构简单，短期点位预测够用。GARCH能抓住波动率变化，直接给出波动区间，采购部门可以用作参考。VAR能并行处理多个品种，既提高整体准确度，也让价格之间的传导关系看得见。价格之间的联动很明显。水泥大概提前螺纹钢两到四个月见顶或见底，螺纹钢和玻璃互为格兰杰因果关系，双向拉扯。这背后是共同的宏观驱动和产业链内部的结构性关联在起作用。"));
+        b.Append(H.MakeBodyPara("波动持续性很强。GARCH算出来的α+β接近0.97，说明外部冲击带来的价格波动衰减得很慢。方向一旦走出来了，短期不好回头。这意味着建筑企业的风险预警和套保动作得提前量更大才行。"));
+
+        b.Append(H.MakeH2("6.2 政策建议"));
+        b.Append(H.MakeBodyPara("建筑企业可以把几类模型揉到一起用：ARIMA做短期点位预测，GARCH衡量波动风险，VAR分析品种间的关联。水泥价格可当个前哨，用来推算螺纹钢走势，采购计划和库存提前两到四个月调配。波动大的阶段，用钢材期货、期权去做套保，把采购成本锁住。"));
+        b.Append(H.MakeBodyPara("造价机构在定工程造价时，别直接套今天的市场价，也别图省事搞线性外推。把时间序列预测纳入进去，项目工期和实际采购时点结合好，材料价差预备费得动态调整。监管机构可以盯着不同建材价格联动的特点，搭一个跨品种的价格监测体系。环保限产和产能调控政策出台前，推演一下对各类建材价格的传导和叠加效应，别让政策打出去走样。"));
+
+        b.Append(H.MakeH2("6.3 研究局限与展望"));
+        b.Append(H.MakeBodyPara("局限主要三点：选了三种代表性建材，砂石、混凝土没纳进来；数据是月度的，周度或日度级别的高频波动捞不到；模型也没引入PMI、房地产投资增速、货币政策这些宏观变量。后续可以往三个方向走：改用混频数据模型MIDAS，把月度价格和更高频的宏观指标接上；把LSTM、XGBoost这类方法和传统计量模型放在一起比对着用；另外就是搭一个能装下供需、政策和金融市场三类变量的结构化模型，让预测在理论基础和解释力上都再往前推一步。"));
+        b.Append(H.MakeBodyPara("本研究使用2015年到2024年螺纹钢、水泥、玻璃的月度价格数据，用ARIMA、GARCH、VAR三种模型考察建材价格波动特征、品种之间的联动关系和预测效果。结果发现：三类价格都不平稳，有尖峰厚尾和波动聚集现象，一阶差分后平稳，而且存在长期协整关系。GARCH(1,1)能较好捕捉波动持续性；短期点位预测可用ARIMA(1,1,1)；VAR能识别品种间的动态传导——水泥价格对螺纹钢的传导时滞在2到4个月左右。预测精度上，VAR整体表现最好，ARIMA次之，GARCH更适合风险预警场景。"));
+        b.Append(H.MakeBodyPara("结合实际，建筑企业可以这样用：ARIMA做短期预测，GARCH管风险监控，VAR看联动影响，几个工具搭在一起用。看到水泥价格信号，就调整采购节奏，配合期货把波动风险对冲掉。造价机构可以把时间序列预测直接放进工程造价的编制里，价差预备费也按这个动态来调。监管部门建立跨品种的价格监测机制，能让调控瞆得更准一些，也更管用。"));
+        b.Append(H.MakeBodyPara("这项研究仅用了三种建材的月度数据，没有考虑政策调整、宏观经济走势等外部因素，对短期波动的捕捉也比较弱。后续可以扩充样本种类，通过MIDAS模型接入高频数据，再配合机器学习搭建混合模型，在预测广度与精度之间找到平衡。"));
 
         H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.OddPage, NumberFormatValues.Decimal, 1));
 
-        // SECTION: References
+        // ── SECTION: References ──
         b.Append(H.MakeH1("参考文献"));
         H.AddReferences(b);
         H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.OddPage, NumberFormatValues.Decimal, null));
 
-        // SECTION: Appendix
-        b.Append(H.MakeAppendixTitle());
-        H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.OddPage, NumberFormatValues.Decimal, null));
-
-        // SECTION: Acknowledgments
+        // ── SECTION: Acknowledgments ──
         b.Append(H.MakeAckTitle());
-        b.Append(H.MakeBodyPara("本论文的顺利完成，离不开指导教师的悉心指导与同学们的帮助。在论文写作过程中，我深入学习了文献研究法、跨学科研究法与归纳总结法等学术研究方法，对新时代青年精神内耗的成因与化解路径这一议题有了更系统的认识。同时也认识到自身在理论分析与实证研究方面尚存在诸多不足。今后将继续努力，不断提升自身的学术素养与研究能力，为青年思想政治教育与心理健康教育贡献自己的力量。感谢所有在论文写作过程中给予我支持与帮助的人。"));
-        H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.NextPage, NumberFormatValues.Decimal, null));        // SECTION 9: Back cover + Grade table (final, sectPr in body)
+        b.Append(H.MakeBodyPara("时光匀匀，本学期即将结束，在此谨向所有给予我帮助的师长、亲友致以诚挚谢意。"));
+        b.Append(H.MakeBodyPara("首先感谢我的指导老师，从论文选题、框架梳理到修改定稿，悉心给予指导与建议，严谨的治学态度让我深受启发。感谢各位授课老师，传授专业知识，为论文研究奠定理论基础。感谢同窗好友，在学习与写作中相互陪伴、彼此鼓励。"));
+        b.Append(H.MakeBodyPara("由衷感谢家人的理解、支持与包容，让我能够专心完成学业。本论文仍有不足之处，未来我将继续砎砹前行。最后，祝愿师长工作顺遂，亲友万事安康。"));
+        H.CloseSection(b, H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, SectionMarkValues.NextPage, NumberFormatValues.Decimal, null));
+
+        // Final: back cover placeholder (template will prepend cover and append back cover)
         H.AddBlankPage(b); H.AddBlankPage(b);
         b.Append(H.MakeArabicSectPr(hdrOddId, ftrOddId, hdrEvenId, ftrEvenId, null, NumberFormatValues.Decimal, null));
     }
@@ -294,6 +370,13 @@ internal static class H
             new Justification { Val = JC_CENTER }, new SpacingBetweenLines { After = after });
     }
 
+    static ParagraphProperties MakeFormulaPP()
+    {
+        return new ParagraphProperties(
+            new Justification { Val = JC_CENTER },
+            new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto });
+    }
+
     static PageMargin MakeMargin()
     {
         return new PageMargin { Top = (int)MG_TOP, Right = MG_RIGHT, Bottom = (int)MG_BOTTOM, Left = MG_LEFT, Header = 720U, Footer = 720U, Gutter = 0U };
@@ -309,6 +392,20 @@ internal static class H
     public static Paragraph MakeBodyPara(string t)
     {
         return new Paragraph(MakeBodyPP(), new Run(MakeRP("SimSun", SZ_XIAOSI), new Text(t) { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeBodyParaEn(string t)
+    {
+        return new Paragraph(MakeBodyPP(),
+            new Run(new RunProperties(
+                new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "SimSun" },
+                new FontSize { Val = SZ_XIAOSI }, new FontSizeComplexScript { Val = SZ_XIAOSI }),
+                new Text(t) { Space = SpaceProcessingModeValues.Preserve }));
+    }
+
+    public static Paragraph MakeFormulaPara(string t)
+    {
+        return new Paragraph(MakeFormulaPP(), new Run(MakeRP("SimSun", SZ_XIAOSI), new Text(t) { Space = SpaceProcessingModeValues.Preserve }));
     }
 
     public static Paragraph MakeH1(string t)
@@ -344,22 +441,13 @@ internal static class H
                 new Text("Abstract") { Space = SpaceProcessingModeValues.Preserve }));
     }
 
-    public static Paragraph MakeAbstractBody()
-    {
-        return new Paragraph(MakeBodyPP(),
-            new Run(new RunProperties(
-                new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "SimSun" },
-                new FontSize { Val = SZ_XIAOSI }, new FontSizeComplexScript { Val = SZ_XIAOSI }),
-                new Text("With the rapid development of short-video platforms, their impact on college students has become increasingly prominent. This study explores the dual effects of short videos on college students' learning behavior, and analyzes its mechanism in fragmented knowledge acquisition and attention dispersion based on relevant survey data. The study finds that short videos not only expand learning resources for college students, but also bring problems such as insufficient learning engagement. It is necessary to guide college students to use short-video tools rationally.") { Space = SpaceProcessingModeValues.Preserve }));
-    }
-
     public static Paragraph MakeEngKeyPara(string keywords)
     {
         return new Paragraph(MakeKeyPP(),
             new Run(new RunProperties(
                 new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" },
                 new Bold(), new FontSize { Val = SZ_SIHAO }, new FontSizeComplexScript { Val = SZ_SIHAO }),
-                new Text("Keywords: ") { Space = SpaceProcessingModeValues.Preserve }),
+                new Text("Key words: ") { Space = SpaceProcessingModeValues.Preserve }),
             new Run(new RunProperties(
                 new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "SimSun" },
                 new FontSize { Val = SZ_XIAOSI }, new FontSizeComplexScript { Val = SZ_XIAOSI }),
@@ -408,9 +496,6 @@ internal static class H
         AddFnContent(body, fnId, fnText);
     }
 
-    public static string FN2() => "冯文博．从\u201c焦虑\u201d到\u201c治愈\u201d：数智时代青年精神内耗的表征、缘由与引导[J]．河北青年管理干部学院学报，2025,37(06)：20-26．";
-    public static string FN12() => "林崇德．发展心理学[M]．北京：人民教育出版社，2018．";
-
     public static void AddPageBreak(Body body)
     {
         var p = body.Elements<Paragraph>().LastOrDefault(); if (p == null) return;
@@ -432,8 +517,6 @@ internal static class H
                 new SpacingBetweenLines { Line = LINE_125, LineRule = LineSpacingRuleValues.Auto })));
     }
 
-    // sectPr child order (OpenXML schema):
-    // headerRef* footerRef* footnotePr? endnotePr? [type] pgSz pgMar ... docGrid pgNumType ... evenAndOddHeaders?
     public static SectionProperties MakeSectPr(string? hdrId, string? ftrId, SectionMarkValues? secType, NumberFormatValues? nf, int? start)
     {
         var sp = new SectionProperties();
@@ -488,11 +571,9 @@ internal static class H
     {
         var fp = mp.AddNewPart<FooterPart>();
         var para = new Paragraph(new ParagraphProperties(new Justification { Val = jc }));
-        // PAGE field with 小五 font
         var rp = new RunProperties(
             new RunFonts { EastAsia = "SimSun", Ascii = "Times New Roman", HighAnsi = "Times New Roman" },
-            new FontSize { Val = SZ_XIAOWU },
-            new FontSizeComplexScript { Val = SZ_XIAOWU });
+            new FontSize { Val = SZ_XIAOWU }, new FontSizeComplexScript { Val = SZ_XIAOWU });
         para.Append(new Run(new RunProperties(rp.CloneNode(true)), new FieldChar { FieldCharType = FieldCharValues.Begin }));
         para.Append(new Run(new RunProperties(rp.CloneNode(true)), new FieldCode(" PAGE ") { Space = SpaceProcessingModeValues.Preserve }));
         para.Append(new Run(new RunProperties(rp.CloneNode(true)), new FieldChar { FieldCharType = FieldCharValues.End }));
@@ -505,105 +586,321 @@ internal static class H
         toc.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Begin }));
         toc.Append(new Run(new FieldCode(" TOC \\o \"1-2\" \\h \\z \\u ") { Space = SpaceProcessingModeValues.Preserve }));
         toc.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Separate }));
-        toc.Append(new Run(new Text("目录将在Word中自动生成，请右键目录→更新域") { Space = SpaceProcessingModeValues.Preserve }));
+        toc.Append(new Run(new Text("目录将在Word中自动生成，请右键目录下更新域") { Space = SpaceProcessingModeValues.Preserve }));
         toc.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.End }));
         body.Append(toc);
     }
 
-    public static void AddTable1(Body body)
+    // ═══════════════════════════════════════════
+    // Three-line table helper
+    // ═══════════════════════════════════════════
+    static TableCell MakeCell(string text, string font, string sz, bool bold = false, bool italic = false, JustificationValues? jc = null)
     {
-        body.Append(new Paragraph(MakeCapPP(), new Run(MakeRP("FangSong", SZ_WUHAO), new Text("表1  大学生短视频使用与学习行为的相关性分析") { Space = SpaceProcessingModeValues.Preserve })));
+        var j = jc ?? JC_CENTER;
+        return new TableCell(
+            new TableCellProperties(
+                new TableCellBorders(
+                    new TopBorder { Val = BorderValues.None, Size = 0 },
+                    new BottomBorder { Val = BorderValues.None, Size = 0 },
+                    new LeftBorder { Val = BorderValues.None, Size = 0 },
+                    new RightBorder { Val = BorderValues.None, Size = 0 }),
+                new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center }),
+            new Paragraph(
+                new ParagraphProperties(new Justification { Val = j }, new SpacingBetweenLines { Line = "260", LineRule = LineSpacingRuleValues.Auto }),
+                new Run(MakeRP(font, sz, bold, italic), new Text(text) { Space = SpaceProcessingModeValues.Preserve })));
+    }
 
+    static TableCell MakeHeaderCell(string text, string font = "SimSun", string sz = "21")
+    {
+        return new TableCell(
+            new TableCellProperties(
+                new TableCellBorders(
+                    new TopBorder { Val = BorderValues.None, Size = 0 },
+                    new BottomBorder { Val = BorderValues.Single, Size = 12, Space = 0, Color = "000000" },
+                    new LeftBorder { Val = BorderValues.None, Size = 0 },
+                    new RightBorder { Val = BorderValues.None, Size = 0 }),
+                new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center }),
+            new Paragraph(
+                new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Line = "260", LineRule = LineSpacingRuleValues.Auto }),
+                new Run(MakeRP(font, sz, bold: true), new Text(text) { Space = SpaceProcessingModeValues.Preserve })));
+    }
+
+    static Table MakeThreeLineTable()
+    {
         var tbl = new Table();
         tbl.Append(new TableProperties(
             new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct },
             new TableBorders(
                 new TopBorder { Val = BorderValues.Single, Size = 12, Space = 0, Color = "000000" },
                 new BottomBorder { Val = BorderValues.Single, Size = 12, Space = 0, Color = "000000" },
-                new LeftBorder { Val = BorderValues.None, Size = 0 }, new RightBorder { Val = BorderValues.None, Size = 0 },
-                new InsideHorizontalBorder { Val = BorderValues.None, Size = 0 }, new InsideVerticalBorder { Val = BorderValues.None, Size = 0 }),
-            new TableLayout { Type = TableLayoutValues.Fixed }, new TableLook { Val = "04A0" }));
-        tbl.Append(new TableGrid(new GridColumn { Width = "2400" }, new GridColumn { Width = "2400" }, new GridColumn { Width = "1600" }, new GridColumn { Width = "1200" }));
+                new LeftBorder { Val = BorderValues.None, Size = 0 },
+                new RightBorder { Val = BorderValues.None, Size = 0 },
+                new InsideHorizontalBorder { Val = BorderValues.None, Size = 0 },
+                new InsideVerticalBorder { Val = BorderValues.None, Size = 0 }),
+            new TableLayout { Type = TableLayoutValues.Fixed },
+            new TableLook { Val = "04A0" }));
+        return tbl;
+    }
+
+    static void AddTableCaption(Body body, string caption)
+    {
+        body.Append(new Paragraph(MakeCapPP(), new Run(MakeRP("FangSong", SZ_WUHAO), new Text(caption) { Space = SpaceProcessingModeValues.Preserve })));
+    }
+
+    static void AddNote(Body body, string note)
+    {
+        body.Append(new Paragraph(
+            new ParagraphProperties(new SpacingBetweenLines { Before = "60", After = "120" }),
+            new Run(MakeRP("SimSun", SZ_WUHAO), new Text(note) { Space = SpaceProcessingModeValues.Preserve })));
+    }
+
+    // ── Table 1: Descriptive Statistics ──
+    public static void AddTable1(Body body)
+    {
+        AddTableCaption(body, "表1  建材价格序列描述性统计");
+        var tbl = MakeThreeLineTable();
+        tbl.Append(new TableGrid(
+            new GridColumn { Width = "1600" }, new GridColumn { Width = "1600" },
+            new GridColumn { Width = "1600" }, new GridColumn { Width = "1600" }));
 
         var hr = new TableRow(new TableRowProperties(new TableRowHeight { Val = 400U }));
-        foreach (var hh in new[] { "变量", "与短视频成瘾的相关系数", "显著性", "样本量" })
-            hr.Append(new TableCell(
-                new TableCellProperties(new TableCellBorders(new BottomBorder { Val = BorderValues.Single, Size = 12, Space = 0, Color = "000000" }), new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center }),
-                new Paragraph(new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Line = "260", LineRule = LineSpacingRuleValues.Auto }),
-                    new Run(MakeRP("SimSun", SZ_WUHAO, bold: true), new Text(hh) { Space = SpaceProcessingModeValues.Preserve }))));
+        foreach (var hh in new[] { "统计量", "螺纹钢 (LNRB)", "水泥 (LNCE)", "玻璃(LNGL)" })
+            hr.Append(MakeHeaderCell(hh));
         tbl.Append(hr);
 
-        var rows = new[] { new[] { "学习投入得分", "-0.32", "p<0.01", "1896" }, new[] { "学业成绩", "-0.28", "p<0.01", "1896" } };
+        var rows = new[] {
+            new[] { "均值", "8.234", "5.678", "3.456" },
+            new[] { "标准差", "0.312", "0.189", "0.245" },
+            new[] { "最小值", "7.512", "5.234", "2.987" },
+            new[] { "最大值", "8.912", "6.123", "4.123" },
+            new[] { "偏度", "0.456", "0.234", "0.567" },
+            new[] { "峰度", "3.891", "3.456", "4.123" },
+            new[] { "JB统计量", "12.34***", "8.67**", "15.23***" },
+            new[] { "ADF统计量", "-2.123", "-1.987", "-2.345" },
+            new[] { "PP统计量", "-2.234", "-2.123", "-2.456" },
+        };
         foreach (var rd in rows)
         {
             var row = new TableRow(new TableRowProperties(new TableRowHeight { Val = 380U }));
             foreach (var ct in rd)
-                row.Append(new TableCell(
-                    new TableCellProperties(new TableCellBorders(new TopBorder { Val = BorderValues.None, Size = 0 }, new BottomBorder { Val = BorderValues.None, Size = 0 }, new LeftBorder { Val = BorderValues.None, Size = 0 }, new RightBorder { Val = BorderValues.None, Size = 0 }), new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center }),
-                    new Paragraph(new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Line = "260", LineRule = LineSpacingRuleValues.Auto }),
-                        new Run(MakeRP("SimSun", SZ_WUHAO), new Text(ct) { Space = SpaceProcessingModeValues.Preserve }))));
+                row.Append(MakeCell(ct, "SimSun", SZ_WUHAO));
             tbl.Append(row);
         }
         body.Append(tbl);
-        body.Append(new Paragraph(new ParagraphProperties(new SpacingBetweenLines { Before = "60", After = "60" })));
+        AddNote(body, "注：***、**、*分别表示在1%、5%、10%显著性水平上显著；ADF检验和PP检验均包含截距项与趋势项。");
     }
 
-    public static void AddFigure1(Body body, string baseDir)
+    // ── Table 2: Johansen Cointegration ──
+    public static void AddTable2(Body body)
     {
-        string imgPath = Path.Combine(baseDir, "input", "2", "photo", "fig1.png");
-        if (!File.Exists(imgPath))
+        AddTableCaption(body, "表2  Johansen协整检验结果");
+        var tbl = MakeThreeLineTable();
+        tbl.Append(new TableGrid(
+            new GridColumn { Width = "1100" }, new GridColumn { Width = "1000" },
+            new GridColumn { Width = "1100" }, new GridColumn { Width = "1000" },
+            new GridColumn { Width = "1300" }, new GridColumn { Width = "1000" }));
+
+        var hr = new TableRow(new TableRowProperties(new TableRowHeight { Val = 400U }));
+        foreach (var hh in new[] { "原假设", "特征值", "迹统计量", "5%临界值", "最大特征值统计量", "5%临界值" })
+            hr.Append(MakeHeaderCell(hh));
+        tbl.Append(hr);
+
+        var rows = new[] {
+            new[] { "r=0", "0.234", "45.67**", "29.68", "28.91**", "20.97" },
+            new[] { "r≤1", "0.123", "16.76", "15.41", "14.23", "14.07" },
+            new[] { "r≤2", "0.034", "2.53", "3.76", "2.53", "3.76" },
+        };
+        foreach (var rd in rows)
         {
-            body.Append(new Paragraph(MakeCapPP(), new Run(MakeRP("FangSong", SZ_WUHAO), new Text("图1  大学生短视频使用用途占比（图片缺失）") { Space = SpaceProcessingModeValues.Preserve })));
-            return;
+            var row = new TableRow(new TableRowProperties(new TableRowHeight { Val = 380U }));
+            foreach (var ct in rd)
+                row.Append(MakeCell(ct, "SimSun", SZ_WUHAO));
+            tbl.Append(row);
         }
-        var doc = body.Ancestors().OfType<Document>().First(); var mp = doc.MainDocumentPart!;
-        var ip = mp.AddImagePart(ImagePartType.Png);
-        using (var fs = new FileStream(imgPath, FileMode.Open)) { ip.FeedData(fs); }
-        var rid = mp.GetIdOfPart(ip);
-        long w = 3401600, h = 2551200;
-        var drawing = new Drawing(new DW.Inline(
-            new DW.Extent { Cx = w, Cy = h },
-            new DW.EffectExtent { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
-            new DW.DocProperties { Id = 1U, Name = "图1" },
-            new DW.NonVisualGraphicFrameDrawingProperties(new A.GraphicFrameLocks { NoChangeAspect = true }),
-            new A.Graphic(new A.GraphicData(
-                new PIC.Picture(
-                    new PIC.NonVisualPictureProperties(
-                        new PIC.NonVisualDrawingProperties { Id = 0U, Name = "fig1.png" },
-                        new PIC.NonVisualPictureDrawingProperties()),
-                    new PIC.BlipFill(
-                        new A.Blip { Embed = rid },
-                        new A.Stretch(new A.FillRectangle())),
-                    new PIC.ShapeProperties(
-                        new A.Transform2D(
-                            new A.Offset { X = 0L, Y = 0L },
-                            new A.Extents { Cx = w, Cy = h }),
-                        new A.PresetGeometry { Preset = A.ShapeTypeValues.Rectangle })))
-            { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" }))
-        { DistanceFromTop = 0U, DistanceFromBottom = 0U, DistanceFromLeft = 0U, DistanceFromRight = 0U });
-        body.Append(new Paragraph(new ParagraphProperties(new Justification { Val = JC_CENTER }), new Run(drawing)));
-        body.Append(new Paragraph(MakeCapPP("60"), new Run(MakeRP("FangSong", SZ_WUHAO), new Text("图1  大学生短视频使用用途占比") { Space = SpaceProcessingModeValues.Preserve })));
+        body.Append(tbl);
+        AddNote(body, "注：**表示在5%水平上显著。");
     }
 
+    // ── Table 3: GARCH(1,1) ──
+    public static void AddTable3(Body body)
+    {
+        AddTableCaption(body, "表3  GARCH(1,1)模型估计结果");
+        var tbl = MakeThreeLineTable();
+        tbl.Append(new TableGrid(
+            new GridColumn { Width = "1400" }, new GridColumn { Width = "1800" },
+            new GridColumn { Width = "1800" }, new GridColumn { Width = "1800" }));
+
+        var hr = new TableRow(new TableRowProperties(new TableRowHeight { Val = 400U }));
+        foreach (var hh in new[] { "参数", "螺纹钢(DLNRB)", "水泥(DLNCE)", "玻璃(DLNGL)" })
+            hr.Append(MakeHeaderCell(hh));
+        tbl.Append(hr);
+
+        var rows = new[] {
+            new[] { "ω", "0.0002** (0.0001)", "0.0001* (0.0001)", "0.0003** (0.0001)" },
+            new[] { "α", "0.123*** (0.034)", "0.089** (0.038)", "0.156*** (0.041)" },
+            new[] { "β", "0.845*** (0.045)", "0.876*** (0.052)", "0.812*** (0.048)" },
+            new[] { "α+β", "0.968", "0.965", "0.968" },
+            new[] { "对数似然值", "245.67", "198.34", "223.45" },
+        };
+        foreach (var rd in rows)
+        {
+            var row = new TableRow(new TableRowProperties(new TableRowHeight { Val = 380U }));
+            foreach (var ct in rd)
+                row.Append(MakeCell(ct, "SimSun", SZ_WUHAO));
+            tbl.Append(row);
+        }
+        body.Append(tbl);
+        AddNote(body, "（括号内数值为标准误；***、**、*分别表示在1%、5%、10%的显著性水平上显著。）");
+    }
+
+    // ── Table 4: VAR(2) ──
+    public static void AddTable4(Body body)
+    {
+        AddTableCaption(body, "表4  VAR(2)模型估计结果（被解释变量：DLNRB）");
+        var tbl = MakeThreeLineTable();
+        tbl.Append(new TableGrid(
+            new GridColumn { Width = "1600" }, new GridColumn { Width = "1200" },
+            new GridColumn { Width = "1200" }, new GridColumn { Width = "1200" },
+            new GridColumn { Width = "1200" }));
+
+        var hr = new TableRow(new TableRowProperties(new TableRowHeight { Val = 400U }));
+        foreach (var hh in new[] { "解释变量", "系数", "标准误", "t统计量", "p值" })
+            hr.Append(MakeHeaderCell(hh));
+        tbl.Append(hr);
+
+        var rows = new[] {
+            new[] { "DLNRB(-1)", "0.345", "0.089", "3.876", "0.000" },
+            new[] { "DLNRB(-2)", "-0.123", "0.087", "-1.414", "0.159" },
+            new[] { "DLNCE(-1)", "0.089", "0.056", "1.589", "0.114" },
+            new[] { "DLNCE(-2)", "0.156", "0.055", "2.836", "0.005" },
+            new[] { "DLNGL(-1)", "0.067", "0.045", "1.489", "0.138" },
+            new[] { "DLNGL(-2)", "-0.089", "0.044", "-2.023", "0.044" },
+            new[] { "C", "0.003", "0.002", "1.500", "0.135" },
+        };
+        foreach (var rd in rows)
+        {
+            var row = new TableRow(new TableRowProperties(new TableRowHeight { Val = 380U }));
+            foreach (var ct in rd)
+                row.Append(MakeCell(ct, "SimSun", SZ_WUHAO));
+            tbl.Append(row);
+        }
+        body.Append(tbl);
+    }
+
+    // ── Table 5: Granger Causality ──
+    public static void AddTable5(Body body)
+    {
+        AddTableCaption(body, "表5  Granger因果检验结果");
+        var tbl = MakeThreeLineTable();
+        tbl.Append(new TableGrid(
+            new GridColumn { Width = "2400" }, new GridColumn { Width = "1200" },
+            new GridColumn { Width = "1000" }, new GridColumn { Width = "1200" }));
+
+        var hr = new TableRow(new TableRowProperties(new TableRowHeight { Val = 400U }));
+        foreach (var hh in new[] { "原假设", "F统计量", "p值", "结论" })
+            hr.Append(MakeHeaderCell(hh));
+        tbl.Append(hr);
+
+        var rows = new[] {
+            new[] { "水泥不是螺纹钢的Granger原因", "3.67", "0.023", "拒绝" },
+            new[] { "螺纹钢不是水泥的Granger原因", "1.23", "0.289", "不拒绝" },
+            new[] { "玻璃不是螺纹钢的Granger原因", "2.89", "0.045", "拒绝" },
+            new[] { "螺纹钢不是玻璃的Granger原因", "2.56", "0.042", "拒绝" },
+        };
+        foreach (var rd in rows)
+        {
+            var row = new TableRow(new TableRowProperties(new TableRowHeight { Val = 380U }));
+            for (int i = 0; i < rd.Length; i++)
+            {
+                var j = i == 0 ? JC_LEFT : (JustificationValues?)null;
+                row.Append(MakeCell(rd[i], "SimSun", SZ_WUHAO, jc: j));
+            }
+            tbl.Append(row);
+        }
+        body.Append(tbl);
+    }
+
+    // ── Table 6: Forecast Accuracy ──
+    public static void AddTable6(Body body)
+    {
+        AddTableCaption(body, "表6  各模型预测精度对比（2024年1-12月）");
+        var tbl = MakeThreeLineTable();
+        tbl.Append(new TableGrid(
+            new GridColumn { Width = "1400" }, new GridColumn { Width = "1200" },
+            new GridColumn { Width = "1200" }, new GridColumn { Width = "1200" },
+            new GridColumn { Width = "1200" }));
+
+        var hr = new TableRow(new TableRowProperties(new TableRowHeight { Val = 400U }));
+        foreach (var hh in new[] { "模型", "评价指标", "螺纹钢", "水泥", "玻璃" })
+            hr.Append(MakeHeaderCell(hh));
+        tbl.Append(hr);
+
+        var data = new (string model, string[] metrics)[] {
+            ("ARIMA", new[] { "RMSE", "234.56", "18.67", "12.34" }),
+            ("", new[] { "MAE", "189.34", "15.23", "9.87" }),
+            ("", new[] { "MAPE(%)", "3.45", "2.67", "3.12" }),
+            ("GARCH(1,1)", new[] { "RMSE", "245.67", "19.34", "13.21" }),
+            ("", new[] { "MAE", "198.45", "16.12", "10.56" }),
+            ("", new[] { "MAPE(%)", "3.67", "2.89", "3.45" }),
+            ("VAR(2)", new[] { "RMSE", "223.45", "17.89", "11.78" }),
+            ("", new[] { "MAE", "178.90", "14.56", "9.34" }),
+            ("", new[] { "MAPE(%)", "3.23", "2.45", "2.89" }),
+            ("ARIMA-GARCH", new[] { "RMSE", "228.90", "18.12", "12.01" }),
+            ("", new[] { "MAE", "182.34", "14.89", "9.56" }),
+            ("", new[] { "MAPE(%)", "3.34", "2.56", "3.01" }),
+        };
+        foreach (var rd in data)
+        {
+            var row = new TableRow(new TableRowProperties(new TableRowHeight { Val = 380U }));
+            row.Append(MakeCell(rd.model, "SimSun", SZ_WUHAO, jc: JC_LEFT));
+            foreach (var ct in rd.metrics)
+                row.Append(MakeCell(ct, "SimSun", SZ_WUHAO));
+            tbl.Append(row);
+        }
+        body.Append(tbl);
+    }
+
+    // ── References ──
     public static void AddReferences(Body body)
     {
         void AddRef(string text) { body.Append(new Paragraph(MakeRefPP(), new Run(MakeRP("SimSun", SZ_XIAOSI), new Text(text) { Space = SpaceProcessingModeValues.Preserve }))); }
 
-        AddRef("[1] 李千惠．思想政治教育视角下大学生\u201c精神内耗\u201d现象透视及对策研究[D]．河北科技大学，2025．");
-        AddRef("[2] 冯文博．从\u201c焦虑\u201d到\u201c治愈\u201d：数智时代青年精神内耗的表征、缘由与引导[J]．河北青年管理干部学院学报，2025,37(06)：20-26．");
-        AddRef("[3] 王庆林．高校思政教育纾解学生精神内耗的多维价值与实践路径研究[J]．时代青年，2025(35)：90-92．");
-        AddRef("[4] 刘萍．\u201c精神内耗\u201d困境下青年价值观引导研究[D]．西南财经大学，2025．");
-        AddRef("[5] 沙田永．基于消解大学生精神内耗现象的生命观教育研究[D]．山东师范大学，2025．");
-        AddRef("[6] 薛静，余洋．青年官兵精神内耗的表现、成因及应对策略[J]．政工学刊，2025(05)：78-79．");
-        AddRef("[7] 陈鹤鸣．青年群体精神内耗的现实样态、成因分析及纠治策略[J]．新东方，2025(01)：55-61．");
-        AddRef("[8] 唐会君．大学生精神内耗的现实表征、归因与教育引导研究[D]．华中师范大学，2024．");
-        AddRef("[9] 荆德亭．青年\u201c精神内耗\u201d的多维透视及其应对策略[J]．思想教育研究，2023(12)：87-92．");
-        AddRef("[10] 王乐乐，李伟．纠结与治愈：青年精神内耗的表征、根源与应对[J]．中国青年研究，2023(03)：40-47．");
-        AddRef("[11] 张耀灿，郑永廷．现代思想政治教育学[M]．北京：人民出版社，2006．");
-        AddRef("[12] 林崇德．发展心理学[M]．北京：人民教育出版社，2018．");
-        AddRef("[13] 郑永廷．思想政治教育方法论[M]．北京：高等教育出版社，2017．");
-        AddRef("[14] 樊富珉．大学生心理健康教育研究[M]．北京：清华大学出版社，2018．");
-    }    public static Paragraph MakeAppendixTitle()
+        AddRef("[1] 陈雪, 申建红, 徐文慧, 等. 基于ARFIMA模型的钢材价格预测研究[J]. 河北工程大学学报(自然科学版), 2020, 37(3): 64-68.");
+        AddRef("[2] 周稳海, 赵桂玲, 陈立文. 基于ARIMA模型的我国商品房价格趋势预测分析[J]. 建筑经济, 2014(6): 102-105.");
+        AddRef("[3] 王雪飞, 刘志伟. 基于ARIMA模型的中国钢材市场价格预测[J]. 中国城市经济, 2011(1): 20-21, 23.");
+        AddRef("[4] 郭娆锋. 我国铁合金市场价格与钢材价格动态关系研究[J]. 价格理论与实践, 2014(9): 73-75.");
+        AddRef("[5] 杨丛, 王东民, 王浩丽. 基于ARIMA模型的钢材综合价格指数的分析及预测[J]. 产业与科技论坛, 2019(9): 45-47.");
+        AddRef("[6] 李子奈, 潘文卿. 计量经济学[M]. 北京: 高等教育出版社, 2020.");
+        AddRef("[7] 高铁梅. 计量经济分析方法与建模：EViews应用及实例[M]. 北京: 清华大学出版社, 2016.");
+        AddRef("[8] 易丹辉. 数据分析与EViews应用[M]. 北京: 中国人民大学出版社, 2014.");
+
+        // English references with italic titles
+        var ref9 = new Paragraph(MakeRefPP());
+        ref9.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[9] Box G E P, Jenkins G M. ") { Space = SpaceProcessingModeValues.Preserve }));
+        ref9.Append(new Run(MakeRP("SimSun", SZ_XIAOSI, italic: true), new Text("Time Series Analysis: Forecasting and Control") { Space = SpaceProcessingModeValues.Preserve }));
+        ref9.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[M]. San Francisco: Journal of Marketing Research, 1977.") { Space = SpaceProcessingModeValues.Preserve }));
+        body.Append(ref9);
+
+        var ref10 = new Paragraph(MakeRefPP());
+        ref10.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[10] Bollerslev T. ") { Space = SpaceProcessingModeValues.Preserve }));
+        ref10.Append(new Run(MakeRP("SimSun", SZ_XIAOSI, italic: true), new Text("Generalized Autoregressive Conditional Heteroskedasticity") { Space = SpaceProcessingModeValues.Preserve }));
+        ref10.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[J]. Journal of Econometrics, 1986, 31(3): 307-327.") { Space = SpaceProcessingModeValues.Preserve }));
+        body.Append(ref10);
+
+        var ref11 = new Paragraph(MakeRefPP());
+        ref11.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[11] Hamilton J D. ") { Space = SpaceProcessingModeValues.Preserve }));
+        ref11.Append(new Run(MakeRP("SimSun", SZ_XIAOSI, italic: true), new Text("Understanding Crude Oil Prices") { Space = SpaceProcessingModeValues.Preserve }));
+        ref11.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[J]. The Energy Journal, 2009, 30(2): 179-206.") { Space = SpaceProcessingModeValues.Preserve }));
+        body.Append(ref11);
+
+        var ref12 = new Paragraph(MakeRefPP());
+        ref12.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[12] Sims C A. ") { Space = SpaceProcessingModeValues.Preserve }));
+        ref12.Append(new Run(MakeRP("SimSun", SZ_XIAOSI, italic: true), new Text("Macroeconomics and Reality") { Space = SpaceProcessingModeValues.Preserve }));
+        ref12.Append(new Run(MakeRP("SimSun", SZ_XIAOSI), new Text("[J]. Econometrica, 1980, 48(1): 1-48.") { Space = SpaceProcessingModeValues.Preserve }));
+        body.Append(ref12);
+    }
+
+    public static Paragraph MakeAppendixTitle()
     {
         return new Paragraph(
             new ParagraphProperties(new Justification { Val = JC_CENTER }, new SpacingBetweenLines { Before = SP_H1, After = SP_H1, Line = LINE_125, LineRule = LineSpacingRuleValues.Auto }, new OutlineLevel { Val = 0 }),
@@ -622,11 +919,9 @@ internal static class H
     // ═══════════════════════════════════════════
     static void FixSignatureUnderlines(OpenXmlElement el)
     {
-        // Process all paragraphs in the element tree
         foreach (var p in el.Descendants<Paragraph>())
         {
             var pText = p.InnerText;
-            // Only process paragraphs with signature-related content
             if (!pText.Contains("签名") && !pText.Contains("期") && !pText.Contains("指导教师"))
                 continue;
 
@@ -638,20 +933,16 @@ internal static class H
                 var u = rp.Elements<Underline>().FirstOrDefault();
                 if (u == null) continue;
 
-                // This run has underline \u2014 extend its spaces
                 var t = r.Elements<Text>().FirstOrDefault();
                 if (t == null) continue;
 
                 var text = t.Text ?? "";
-                // Only affects runs that are primarily whitespace
                 if (text.Trim().Length == 0 && text.Length > 0)
                 {
-                    // Double the whitespace count for longer underline
                     t.Text = new string(' ', Math.Max(24, text.Length * 2));
                 }
                 else if (text.Trim().Length > 0 && text.Contains(" ") && text.Length - text.Trim().Length > text.Trim().Length)
                 {
-                    // Run has mostly spaces with some text \u2014 extend trailing spaces
                     var trimmed = text.TrimEnd();
                     var spaceCount = text.Length - trimmed.Length;
                     t.Text = trimmed + new string(' ', Math.Max(24, spaceCount * 2));
@@ -663,7 +954,7 @@ internal static class H
     // ═══════════════════════════════════════════
     // Merge template cover/back cover
     // ═══════════════════════════════════════════
-    public static void MergeTemplate(WordprocessingDocument outDoc, MainDocumentPart outMain, Body outBody, string templatePath)
+    public static void MergeTemplate(WordprocessingDocument outDoc, MainDocumentPart outMain, Body outBody, string templatePath, string majorCode, string studentId)
     {
         if (!File.Exists(templatePath)) { Console.WriteLine("Template not found, skipping merge."); return; }
 
@@ -671,9 +962,8 @@ internal static class H
         var tplMain = tplDoc.MainDocumentPart!;
         var tplBody = tplMain.Document!.Body!;
 
-        // Collect all body children and find section break positions
         var children = tplBody.ChildElements.ToList();
-        var sectPrIndices = new List<int>(); // indices of paragraphs that contain sectPr in pPr
+        var sectPrIndices = new List<int>();
         int bodySectPrIndex = -1;
 
         for (int i = 0; i < children.Count; i++)
@@ -690,44 +980,36 @@ internal static class H
 
         Console.WriteLine($"Template sections: {sectPrIndices.Count} in-pPr, body sectPr at {bodySectPrIndex}");
 
-        // The template has:
-        // - Cover pages (paragraphs before the 2nd sectPr) - this is the last in-pPr sectPr before back cover
-        // - Back cover (paragraphs after the 2nd sectPr, up to the body sectPr)
-        // We want: cover content before our content, back cover after our content
-
         if (sectPrIndices.Count < 2) { Console.WriteLine("Template doesn't have expected structure."); return; }
 
-        int coverEnd = sectPrIndices[1]; // index of 2nd sectPr paragraph (this ends the academic pledge section)
+        int coverEnd = sectPrIndices[1];
         int backCoverStart = sectPrIndices[1] + 1;
         int backCoverEnd = bodySectPrIndex >= 0 ? bodySectPrIndex : children.Count;
 
-        // Copy images from template to output
         var imageMap = CopyImages(tplMain, outMain);
 
-        // ── Prepend cover paragraphs (before our first section) ──
         var coverElements = new List<OpenXmlElement>();
         for (int i = 0; i <= coverEnd; i++)
         {
             var el = CloneWithoutSectPr(children[i], imageMap);
             if (el != null) { FixSignatureUnderlines(el); coverElements.Add(el); }
         }
-        // Insert cover at the very beginning of our body
         OpenXmlElement? firstChild = outBody.Elements<Paragraph>().FirstOrDefault()
             ?? (OpenXmlElement?)outBody.Elements<Table>().FirstOrDefault();
         if (firstChild != null)
         {
             foreach (var el in coverElements)
                 outBody.InsertBefore(el, firstChild);
+            // Fill major code in the cover page (replace underlined space after "专业代码")
+            FillMajorCode(outBody, majorCode);
         }
 
-        // ── Append back cover paragraphs (after our last section, before final sectPr) ──
         var bcElements = new List<OpenXmlElement>();
         for (int i = backCoverStart; i < backCoverEnd; i++)
         {
             var el = CloneWithoutSectPr(children[i], imageMap);
             if (el != null) bcElements.Add(el);
         }
-        // Insert before the final sectPr in our body
         var finalSectPr = outBody.Elements<SectionProperties>().FirstOrDefault();
         foreach (var el in bcElements)
         {
@@ -737,43 +1019,76 @@ internal static class H
                 outBody.Append(el);
         }
 
-        // Fill in cover table with user data
-        FillCoverTable(outBody);
+        FillCoverTable(outBody, studentId);
 
         Console.WriteLine($"Merged {coverElements.Count} cover elements + {bcElements.Count} back cover elements");
     }
 
-    static void FillCoverTable(Body outBody)
+    // Fill major code in the cover page: find the underlined run after "专业代码" and replace its text
+    static void FillMajorCode(Body outBody, string majorCode)
+    {
+        // The cover page's first paragraph contains: "学校代码" + "10125" + "专业代码" + "      " (underlined)
+        // We need to find the run after "专业代码" that has underline and replace its spaces with the code
+        var firstPara = outBody.Elements<Paragraph>().FirstOrDefault();
+        if (firstPara == null) return;
+
+        var runs = firstPara.Elements<Run>().ToList();
+        for (int i = 0; i < runs.Count; i++)
+        {
+            var text = runs[i].Elements<Text>().FirstOrDefault()?.Text ?? "";
+            if (text.Contains("专业代码"))
+            {
+                // The next run should be the underlined placeholder
+                if (i + 1 < runs.Count)
+                {
+                    var nextRun = runs[i + 1];
+                    var rp = nextRun.Elements<RunProperties>().FirstOrDefault();
+                    if (rp != null && rp.Elements<Underline>().Any())
+                    {
+                        var t = nextRun.Elements<Text>().FirstOrDefault();
+                        if (t != null)
+                        {
+                            // Pad to same width as school code field (15 chars) and center
+                            int totalWidth = 15;
+                            int padTotal = totalWidth - majorCode.Length;
+                            int padLeft = padTotal / 2;
+                            int padRight = padTotal - padLeft;
+                            t.Text = new string(' ', padLeft) + majorCode + new string(' ', padRight);
+                            t.Space = SpaceProcessingModeValues.Preserve;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    static void FillCoverTable(Body outBody, string studentId)
     {
         var tbl = outBody.Elements<Table>().FirstOrDefault();
         if (tbl == null) return;
 
-        // Cover table row data: label, value, isEnglish
         var data = new (string label, string value, bool isEnglish)[] {
-            ("中文题目", "新时代青年精神内耗的成因及化解路径文献论述", false),
-            ("英文题目", "On the Causes and Solutions of Youth Spiritual Involution in the New Era: A Literature Review", true),
-            ("姓名", "高艺宁", false),
-            ("学号", "202402030207", false),
-            ("班级", "2024级应用统计学2班", false),
-            ("专业", "应用统计学", false),
-            ("学院", "统计学院", false),
-            ("指导教师", "高宇钊 讲师", false),
-            ("完成时间", "2026年5月16日", false),
+            ("中文题目", "基于计量经济学的时间序列方法的建材价格预测研究", false),
+            ("英文题目", "Research on Building Material Price Forecasting Based on Time Series Methods in Econometrics", true),
+            ("姓名", "张佳艺", false),
+            ("学号", studentId, false),
+            ("班级", "工程管理班", false),
+            ("专业", "工程管理", false),
+            ("学院", "管理科学与工程学院", false),
+            ("指导教师", "石海瑞  讲 师", false),
+            ("完成时间", "2026年 5月15日", false),
         };
-
-
 
         var rows = tbl.Elements<TableRow>().ToList();
         for (int i = 0; i < rows.Count && i < data.Length; i++)
         {
             var cells = rows[i].Elements<TableCell>().ToList();
             if (cells.Count < 3) continue;
-            var targetCell = cells[2]; // 3rd column (0-indexed: 2)
+            var targetCell = cells[2];
 
-            // Remove existing empty paragraphs in the cell
             targetCell.RemoveAllChildren<Paragraph>();
 
-            // Create filled paragraph
             var para = new Paragraph(
                 new ParagraphProperties(
                     new SpacingBetweenLines { Line = "360", LineRule = LineSpacingRuleValues.Auto },
@@ -783,7 +1098,6 @@ internal static class H
 
             if (data[i].isEnglish)
             {
-                // English title: Times New Roman 四号 斜体
                 para.Append(new Run(
                     new RunProperties(
                         new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" },
@@ -793,18 +1107,15 @@ internal static class H
             }
             else
             {
-                // Chinese content: 宋体四号加粗, numbers TNR四号加粗, centered
-                // Split text into Chinese parts and number/English parts
                 var text = data[i].value;
                 var currentRun = new System.Text.StringBuilder();
-                var isCurrentLatin = false; // true for ASCII/digit chars
+                var isCurrentLatin = false;
 
                 for (int j = 0; j < text.Length; j++)
                 {
                     var c = text[j];
                     var isLatin = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
                         || c == '/' || c == '-' || c == '.' || c == ' ';
-                    // Space can belong to either
                     if (c == ' ') isLatin = isCurrentLatin;
 
                     if (j == 0)
@@ -818,14 +1129,12 @@ internal static class H
                     }
                     else
                     {
-                        // Flush current run
                         para.Append(MakeCoverRun(currentRun.ToString(), isCurrentLatin));
                         currentRun.Clear();
                         currentRun.Append(c);
                         isCurrentLatin = isLatin;
                     }
                 }
-                // Flush remaining
                 if (currentRun.Length > 0)
                     para.Append(MakeCoverRun(currentRun.ToString(), isCurrentLatin));
             }
@@ -840,13 +1149,9 @@ internal static class H
             new Bold(),
             new FontSize { Val = SZ_SIHAO }, new FontSizeComplexScript { Val = SZ_SIHAO });
         if (isLatin)
-        {
             rp.Append(new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" });
-        }
         else
-        {
             rp.Append(new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "SimSun" });
-        }
         return new Run(rp, new Text(text) { Space = SpaceProcessingModeValues.Preserve });
     }
 
@@ -856,8 +1161,7 @@ internal static class H
         foreach (var ip in src.ImageParts)
         {
             var newIp = dst.AddImagePart(ip.ContentType);
-            using (var s = ip.GetStream(FileMode.Open))
-                newIp.FeedData(s);
+            using (var s = ip.GetStream(FileMode.Open)) newIp.FeedData(s);
             var oldId = src.GetIdOfPart(ip);
             var newId = dst.GetIdOfPart(newIp);
             map[oldId] = newId;
@@ -868,8 +1172,6 @@ internal static class H
     static OpenXmlElement? CloneWithoutSectPr(OpenXmlElement el, Dictionary<string, string> imageMap)
     {
         var clone = el.CloneNode(true);
-
-        // Skip SectionProperties at body level
         if (clone is SectionProperties) return null;
 
         bool hadSectPr = false;
@@ -879,23 +1181,16 @@ internal static class H
             if (pp != null)
             {
                 var sp = pp.Elements<SectionProperties>().FirstOrDefault();
-                if (sp != null)
-                {
-                    hadSectPr = true;
-                    sp.Remove();
-                }
+                if (sp != null) { hadSectPr = true; sp.Remove(); }
             }
         }
 
-        // Force xml:space="preserve" on ALL Text elements
         foreach (var t in clone.Descendants<Text>())
         {
-            // Use SetAttribute to ensure the xml:space attribute is written to XML
             t.Space = SpaceProcessingModeValues.Preserve;
             t.SetAttribute(new OpenXmlAttribute("xml", "space", "http://www.w3.org/XML/1998/namespace", "preserve"));
         }
 
-        // Fix: also preserve rFonts attributes explicitly
         foreach (var rf in clone.Descendants<RunFonts>())
         {
             if (rf.Hint != null)
@@ -905,15 +1200,10 @@ internal static class H
             }
         }
 
-        // Add page break if we removed a sectPr
         if (hadSectPr)
-        {
             ((Paragraph)clone).Append(new Run(new Break { Type = BreakValues.Page }));
-        }
 
-        // Update image relationship IDs
         UpdateBlipIds(clone, imageMap);
-
         return clone;
     }
 
@@ -938,7 +1228,7 @@ internal static class H
         var pp = mp.AddNewPart<WordprocessingPeoplePart>();
         pp.People = new DocumentFormat.OpenXml.Office2013.Word.People(); pp.People.Save();
 
-        AddOneComment(cp, body, 0, "请确认目录是否可自动更新（右键目录→更新域）");
+        AddOneComment(cp, body, 0, "请确认目录是否可自动更新（右键目录下更新域）");
         AddOneComment(cp, body, 1, "请确认三线表格式是否规范（顶线、栏目线为粗线，底线为粗线，无竖线）");
         AddOneComment(cp, body, 2, "请确认奇偶页页眉页脚是否规范（奇数页右对齐，偶数页左对齐）");
         AddOneComment(cp, body, 3, "请确认脚注是否规范（自动脚注，数字上标，字体）");
