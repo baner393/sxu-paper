@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "7Q8iCWUt0Ls=",
+  "success": true,
+  "projectFilePath": "D:\\360MoveData\\Users\\ban\\Desktop\\school_about\\word_about\\sxuyear\\output\\ThesisGenerator.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ban\\.nuget\\packages\\documentformat.openxml\\3.2.0\\documentformat.openxml.3.2.0.nupkg.sha512",
+    "C:\\Users\\ban\\.nuget\\packages\\documentformat.openxml.framework\\3.2.0\\documentformat.openxml.framework.3.2.0.nupkg.sha512",
+    "C:\\Users\\ban\\.nuget\\packages\\system.io.packaging\\8.0.1\\system.io.packaging.8.0.1.nupkg.sha512"
+  ],
+  "logs": []
+}

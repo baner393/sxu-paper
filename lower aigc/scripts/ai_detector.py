@@ -360,6 +360,118 @@ def detect_ai_content(text: str) -> Dict:
     }
 
 
+def detect_paragraph_ai_rate(text: str) -> List[Dict]:
+    """
+    分段评估每个段落的 AI 率
+
+    返回:
+        [
+            {
+                "index": 0,  # 段落索引
+                "text": "段落内容...",
+                "ai_score": 45.2,  # 该段落的 AI 率
+                "level": "中",
+                "details": {...}  # 各维度详情
+            },
+            ...
+        ]
+    """
+    # 保留原始文本用于提取段落
+    paragraphs = split_paragraphs(text)
+
+    results = []
+    for i, para in enumerate(paragraphs):
+        # 跳过太短的段落
+        if len(para) < 20:
+            continue
+
+        # 检测单个段落的 AI 率
+        result = detect_ai_content(para)
+        results.append({
+            "index": i,
+            "text": para[:100] + "..." if len(para) > 100 else para,  # 只保留前100字用于显示
+            "full_text": para,
+            "ai_score": result["ai_score"],
+            "level": result["level"],
+            "details": result["details"]
+        })
+
+    return results
+
+
+def get_high_ai_paragraphs(text: str, top_percent: float = 0.3) -> List[Dict]:
+    """
+    返回 AI 率排名前 N% 的段落
+
+    参数:
+        text: 原始文本
+        top_percent: 选择前百分之几的高 AI 率段落（默认 30%）
+
+    返回:
+        按 AI 率降序排列的高 AI 率段落列表
+    """
+    paragraph_results = detect_paragraph_ai_rate(text)
+
+    if not paragraph_results:
+        return []
+
+    # 按 AI 率降序排列
+    sorted_results = sorted(paragraph_results, key=lambda x: x["ai_score"], reverse=True)
+
+    # 选择前 N%
+    top_count = max(1, int(len(sorted_results) * top_percent))
+    top_paragraphs = sorted_results[:top_count]
+
+    return top_paragraphs
+
+
+def format_paragraph_report(paragraph_results: List[Dict], top_percent: float = 0.3) -> str:
+    """格式化分段评估报告"""
+    lines = []
+    lines.append("=" * 60)
+    lines.append("分段 AI 率评估报告")
+    lines.append("=" * 60)
+    lines.append("")
+
+    if not paragraph_results:
+        lines.append("未检测到有效段落")
+        lines.append("=" * 60)
+        return "\n".join(lines)
+
+    # 总体统计
+    scores = [p["ai_score"] for p in paragraph_results]
+    avg_score = sum(scores) / len(scores)
+    max_score = max(scores)
+    min_score = min(scores)
+
+    lines.append(f"段落数量: {len(paragraph_results)}")
+    lines.append(f"平均 AI 率: {avg_score:.1f}%")
+    lines.append(f"最高 AI 率: {max_score:.1f}%")
+    lines.append(f"最低 AI 率: {min_score:.1f}%")
+    lines.append("")
+
+    # 高 AI 率段落
+    top_count = max(1, int(len(paragraph_results) * top_percent))
+    sorted_results = sorted(paragraph_results, key=lambda x: x["ai_score"], reverse=True)
+    top_paragraphs = sorted_results[:top_count]
+
+    lines.append("-" * 60)
+    lines.append(f"AI 率排名前 {int(top_percent*100)}% 的段落（共 {len(top_paragraphs)} 个）:")
+    lines.append("-" * 60)
+
+    for i, para in enumerate(top_paragraphs, 1):
+        bar_len = 20
+        filled = int(para["ai_score"] / 100 * bar_len)
+        bar = "█" * filled + "░" * (bar_len - filled)
+
+        lines.append(f"{i}. 段落 {para['index']+1} - AI率: [{bar}] {para['ai_score']}% ({para['level']})")
+        lines.append(f"   内容: {para['text']}")
+        lines.append("")
+
+    lines.append("=" * 60)
+    return "\n".join(lines)
+
+
 def format_report(result: Dict, filename: str = "") -> str:
     """格式化检测报告"""
     lines = []
@@ -522,6 +634,7 @@ def main():
     if len(sys.argv) < 2:
         print("用法: python ai_detector.py <markdown_file> [--compare <after_file>]")
         print("      python ai_detector.py --before <before_file> --after <after_file>")
+        print("      python ai_detector.py --paragraphs <markdown_file> [--top-percent 0.3]")
         sys.exit(1)
 
     if sys.argv[1] == "--compare" and len(sys.argv) >= 4:
@@ -551,6 +664,32 @@ def main():
 
         report = compare_reports(before_result, after_result, before_file)
         print(report)
+
+    elif sys.argv[1] == "--paragraphs":
+        # 分段评估模式
+        if len(sys.argv) < 3:
+            print("用法: python ai_detector.py --paragraphs <markdown_file> [--top-percent 0.3]")
+            sys.exit(1)
+
+        filepath = sys.argv[2]
+        text = Path(filepath).read_text(encoding="utf-8")
+
+        # 解析 top-percent 参数
+        top_percent = 0.3
+        if "--top-percent" in sys.argv:
+            idx = sys.argv.index("--top-percent")
+            if idx + 1 < len(sys.argv):
+                top_percent = float(sys.argv[idx + 1])
+
+        # 分段评估
+        paragraph_results = detect_paragraph_ai_rate(text)
+        report = format_paragraph_report(paragraph_results, top_percent)
+        print(report)
+
+        # 输出 JSON 格式（供程序调用）
+        if "--json" in sys.argv:
+            high_ai = get_high_ai_paragraphs(text, top_percent)
+            print("\n" + json.dumps(high_ai, ensure_ascii=False, indent=2))
 
     else:
         # 单文件检测模式
