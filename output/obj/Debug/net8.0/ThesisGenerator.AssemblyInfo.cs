@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ThesisGenerator")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0412a37bc7f828d95bb41d8ef6a03e0ea25b7ce6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ab6f9063f19c2cc0b0a4c1f2dc19ab837aaf18f0")]
 [assembly: System.Reflection.AssemblyProductAttribute("ThesisGenerator")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ThesisGenerator")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
