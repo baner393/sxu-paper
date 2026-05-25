@@ -952,8 +952,8 @@ def remove_quotes_and_concretize(text, frequency=500):
         content = match.group(1)
         return concretize_content(content)
 
-    # 匹配中文双引号（支持多层嵌套）
-    text = re.sub(r'[""](.*?)[""]', replace_chinese_quotes, text)
+    # 匹配中文双引号（Unicode: “ 和 ”）
+    text = re.sub(r'“(.*?)”', replace_chinese_quotes, text)
     # 匹配英文双引号
     text = re.sub(r'"(.*?)"', replace_english_quotes, text)
 
