@@ -686,6 +686,365 @@ def insert_author_viewpoint(text, frequency=1000):
     return ''.join(result)
 
 
+def syntactic_perturbation(text, frequency=500):
+    """句法结构扰动：倒装、打乱、省略、补充
+
+    对主谓宾定状补等语法结构进行扰动，使句子更像人类写作
+    """
+    chars_count = count_chars(text)
+    perturb_count = max(1, chars_count // frequency)
+    sentences = re.split(r'(?<=[。！？])', text)
+    result = []
+    perturbed = 0
+
+    # 口语化插入语
+    oral_inserts = [
+        "说实话，", "怎么说呢，", "其实吧，", "你看，", "这么说吧，",
+        "简单来说，", "换个角度，", "老实讲，", "说白了，", "换句话说，",
+    ]
+
+    # 倒装标记词（宾语/补语提前的模式）
+    inversion_patterns = [
+        # "X是Y" → "Y，这就是X"
+        (r'^(.{2,15})是(.{2,20})[，,]', r'\2，这是\1的'),
+        # "X认为Y" → "Y，X是这么看的"
+        (r'^(.{2,10})认为(.{5,30})[，,]', r'\2，\1是这么认为的'),
+        # "X使Y" → "Y，源于X"
+        (r'^(.{2,15})使(.{3,20})[，,]', r'\2，源于\1'),
+    ]
+
+    # 省略模式（删除冗余主语或连接词）
+    omit_patterns = [
+        # 省略"我们"、"本文"等开头
+        (r'^(我们|本文|本研究|笔者)(认为|觉得|发现|指出)?[，,]?', ''),
+        # 省略"因此"、"所以"等连接词开头
+        (r'^(因此|所以|故而|由此可见)[，,]?', ''),
+    ]
+
+    for sent in sentences:
+        if not sent.strip() or len(sent) < 15:
+            result.append(sent)
+            continue
+
+        if perturbed < perturb_count and random.random() < 0.3:
+            strategy = random.choice(['invert', 'omit', 'insert'])
+
+            if strategy == 'invert':
+                # 倒装：尝试调整语序
+                for pattern, replacement in inversion_patterns:
+                    new_sent = re.sub(pattern, replacement, sent, count=1)
+                    if new_sent != sent:
+                        sent = new_sent
+                        perturbed += 1
+                        break
+
+            elif strategy == 'omit':
+                # 省略：删除冗余词语
+                for pattern, replacement in omit_patterns:
+                    new_sent = re.sub(pattern, replacement, sent, count=1)
+                    if new_sent != sent and len(new_sent) > 10:
+                        sent = new_sent
+                        perturbed += 1
+                        break
+
+            elif strategy == 'insert':
+                # 补充：添加口语化插入语
+                if len(sent) > 30 and '，' in sent:
+                    parts = sent.split('，', 1)
+                    if len(parts) == 2 and len(parts[0]) > 5:
+                        insert = random.choice(oral_inserts)
+                        sent = parts[0] + '，' + insert + parts[1]
+                        perturbed += 1
+
+        result.append(sent)
+
+    return ''.join(result)
+
+
+def remove_quotes_and_concretize(text, frequency=500):
+    """删除双引号，并将所有内容进行具体化改写
+
+    对双引号内的所有内容进行改写，无论是否抽象：
+    1. 删除双引号
+    2. 将抽象表述替换为具体表述
+    3. 保留具体内容但用更具体的措辞
+    """
+    chars_count = count_chars(text)
+
+    # 抽象概念 → 具体表述的映射（优先匹配）
+    abstract_to_concrete = {
+        "这个问题": "定价过高、服务不到位等问题",
+        "这种情况": "用户流失、口碑下滑的情况",
+        "这种方式": "打折促销、会员积分的方式",
+        "这种方法": "数据分析、用户调研的方法",
+        "这种现象": "恶性竞争、价格战的现象",
+        "这种趋势": "数字化、智能化的趋势",
+        "这种模式": "平台化、生态化的模式",
+        "这种策略": "差异化、低成本的策略",
+        "这种机制": "激励约束、反馈改进的机制",
+        "这种体系": "标准化、规范化的体系",
+        "这种理念": "以用户为中心、长期主义的理念",
+        "这种思维": "数据驱动、结果导向的思维",
+        "这个领域": "电商、教育、医疗等领域",
+        "这个阶段": "初创期、成长期、成熟期",
+        "这个过程": "需求分析、产品设计、开发测试的过程",
+        "关键因素": "资金、人才、技术、市场等关键因素",
+        "核心问题": "成本高、效率低、体验差等核心问题",
+        "重要手段": "技术创新、模式创新、管理创新等重要手段",
+        "有效途径": "降本增效、提升体验、拓展市场等有效途径",
+    }
+
+    # 通用抽象词替换映射（用于改写引号内容中的抽象词）
+    generic_replacements = {
+        "赋能": "支持帮助",
+        "深耕": "长期专注",
+        "聚焦": "重点关注",
+        "打造": "建设发展",
+        "引领": "带头推动",
+        "闭环": "完整循环",
+        "抓手": "切入点",
+        "底层逻辑": "根本原因",
+        "顶层设计": "整体规划",
+        "落地": "实施执行",
+        "沉淀": "积累总结",
+        "对齐": "达成一致",
+        "迭代": "更新改进",
+        "优化": "改进完善",
+        "复盘": "总结回顾",
+        "梳理": "整理分析",
+        "输出": "提供展示",
+        "提炼": "提取总结",
+        "协同": "配合协作",
+        "联动": "配合联动",
+        "打通": "连接贯通",
+        "发力": "集中力量",
+        "量化": "用数据衡量",
+        "细分": "详细划分",
+        "重塑": "重新构建",
+        "洞察": "深入观察",
+        "渗透": "深入影响",
+        "辐射": "影响带动",
+        "兜底": "保障支撑",
+        "解耦": "分离独立",
+        "复用": "重复利用",
+        "集成": "整合组合",
+        "拆解": "分解分析",
+        "破圈": "突破范围",
+        "破局": "打破困境",
+        "触达": "接触影响",
+        "赛道": "行业领域",
+        "痛点": "问题难点",
+        "私域": "自有渠道",
+        "流量": "用户访问",
+        "拉新": "获取新用户",
+        "转化": "促成交易",
+        "留存": "保持用户",
+        "促活": "提升活跃",
+        "获客": "获取客户",
+        "激活": "唤醒激活",
+        "裂变": "快速传播",
+        "增长": "发展壮大",
+        "壁垒": "竞争门槛",
+        "下沉": "向下拓展",
+        "矩阵": "多点布局",
+        "生态": "环境体系",
+        "心智": "认知印象",
+        "打法": "方法策略",
+        "风口": "发展机会",
+        "红利": "发展机遇",
+        "赋能": "支持帮助",
+        "颗粒度": "细致程度",
+        "势能": "积累优势",
+        "体感": "实际感受",
+        "感知": "感受认知",
+        "调性": "风格特点",
+        "战役": "重大活动",
+        "合力": "共同力量",
+        "心力": "精力意志",
+        "基石": "基础根本",
+        "基因": "本质特点",
+        "因子": "影响因素",
+        "模型": "模式框架",
+        "通道": "渠道路径",
+        "链路": "流程路径",
+        "水位": "水平标准",
+        "水准": "水平程度",
+        "姿态": "态度立场",
+        "卡点": "难点障碍",
+        "卡位": "占据位置",
+        "头部": "领先位置",
+        "腰部": "中间位置",
+        "爽点": "满意亮点",
+        "痒点": "期待需求",
+        "全域": "全部范围",
+        "公域": "开放平台",
+        "蓝海": "新兴市场",
+        "红海": "竞争市场",
+        "变量": "变化因素",
+        "边界": "范围界限",
+        "阵地": "位置领域",
+        "高地": "优势位置",
+        "洼地": "劣势位置",
+        "革命": "重大变革",
+        "变革": "改革创新",
+        "内卷": "过度竞争",
+        "圈层": "群体圈子",
+        "环节": "步骤环节",
+        "困局": "困难局面",
+        "话术": "表达方式",
+        "触点": "接触节点",
+        "峰值": "最高点",
+        "漏洞": "问题缺陷",
+        "风险": "危险隐患",
+        "瓶颈": "制约障碍",
+        "策略": "方法对策",
+        "价值": "作用意义",
+        "成本": "投入代价",
+        "深度": "深入程度",
+        "口碑": "评价声誉",
+        "指标": "衡量标准",
+        "试点": "试验探索",
+        "空白": "空缺领域",
+    }
+
+    # 具体化改写模板（用于短句改写）
+    concretize_templates = {
+        # 纯抽象词组 → 具体表述
+        "叠合式叙事共生": "多种叙事在同一空间中相互融合的共生方式",
+        "张力式戏剧共生": "通过对比反差产生戏剧效果的共生方式",
+        "隔代式转译共生": "不同时代记忆通过转译实现连接的共生方式",
+        "记忆叠层": "不同时期记忆在同一空间中层层叠加",
+        "文化共生": "不同文化在同一空间中共存互融",
+        "红色文旅": "以革命历史为主题的文旅项目",
+        "汉文化": "汉代历史文化",
+    }
+
+    def concretize_content(content):
+        """对引号内容进行具体化改写"""
+        # 如果内容很短（<4字），可能是引用词，直接返回删除引号
+        if len(content) <= 3:
+            return content
+
+        # 检查是否匹配具体化模板
+        for key, value in concretize_templates.items():
+            if key in content:
+                content = content.replace(key, value)
+
+        # 替换内容中的抽象词
+        for abstract, concrete in generic_replacements.items():
+            if abstract in content:
+                content = content.replace(abstract, concrete)
+
+        # 检查是否匹配抽象概念映射
+        for key, value in abstract_to_concrete.items():
+            if key in content:
+                return value
+
+        return content
+
+    # 处理中文双引号
+    def replace_chinese_quotes(match):
+        content = match.group(1)
+        return concretize_content(content)
+
+    # 处理英文双引号
+    def replace_english_quotes(match):
+        content = match.group(1)
+        return concretize_content(content)
+
+    # 匹配中文双引号（支持多层嵌套）
+    text = re.sub(r'[""](.*?)[""]', replace_chinese_quotes, text)
+    # 匹配英文双引号
+    text = re.sub(r'"(.*?)"', replace_english_quotes, text)
+
+    return text
+
+
+def paragraph_structure_jump(text, frequency=800):
+    """段结构跳跃：补充论据、反向论证、视角转化
+
+    通过打乱句子顺序、添加转折、插入反向论证等方式，
+    使段落结构更有跳跃性，避免线性叙述
+    """
+    chars_count = count_chars(text)
+    sentences = re.split(r'(?<=[。！？])', text)
+    sentences = [s for s in sentences if s.strip()]
+
+    if len(sentences) < 3:
+        return text
+
+    jump_count = max(1, chars_count // frequency)
+    jumped = 0
+
+    # 反向论证模板
+    reverse_templates = [
+        "但换个角度看，{point}",
+        "当然也有人会说，{point}",
+        "不过反过来看，{point}",
+        "从另一个层面讲，{point}",
+    ]
+
+    # 抛出问题的模板
+    question_templates = [
+        "但问题是，{point}",
+        "这就有意思了，{point}",
+        "换个角度想，{point}",
+        "有意思的是，{point}",
+    ]
+
+    result = []
+    i = 0
+    while i < len(sentences):
+        sent = sentences[i]
+
+        # 策略1：在结论性句子后插入反向论证
+        if (jumped < jump_count and
+            any(kw in sent for kw in ['因此', '所以', '总之', '可见', '证明', '说明']) and
+            random.random() < 0.3):
+            # 在结论前插入质疑
+            template = random.choice(question_templates)
+            point = sent[:20] + '...' if len(sent) > 20 else sent
+            question = template.format(point=point)
+            result.append(question)
+            result.append(sent)
+            jumped += 1
+
+        # 策略2：打乱相邻句子顺序（模拟思维跳跃）
+        elif (jumped < jump_count and
+              i + 1 < len(sentences) and
+              len(sent) > 20 and len(sentences[i+1]) > 20 and
+              random.random() < 0.15):
+            # 交换顺序
+            result.append(sentences[i+1])
+            result.append(sent)
+            i += 2
+            jumped += 1
+            continue
+
+        # 策略3：在段落中间插入视角转化
+        elif (jumped < jump_count and
+              i == len(sentences) // 2 and
+              len(sentences) >= 4 and
+              random.random() < 0.2):
+            # 插入视角转化标记
+            perspective_shifts = [
+                "站在另一个角度看，",
+                "反过来想，",
+                "从用户的角度，",
+                "如果不这样呢？",
+            ]
+            shift = random.choice(perspective_shifts)
+            result.append(shift + sent)
+            jumped += 1
+
+        else:
+            result.append(sent)
+
+        i += 1
+
+    return ''.join(result)
+
+
 def process_paragraph(para, config):
     """处理单个段落"""
     if para.startswith('#') or para.startswith('|') or para.startswith('```'):
@@ -705,6 +1064,24 @@ def process_paragraph(para, config):
 
     if config['sentence_perturb'] >= 3:
         text = perturb_sentence_structure(text, intensity="medium")
+
+    # 新功能1：句法结构扰动（倒装、打乱、省略、补充）
+    if config.get('syntactic_perturb', 0) >= 3:
+        text = syntactic_perturbation(text, frequency=500)
+    elif config.get('syntactic_perturb', 0) >= 1:
+        text = syntactic_perturbation(text, frequency=1000)
+
+    # 新功能2：删除双引号并替换抽象内容
+    if config.get('quote_concretize', 0) >= 3:
+        text = remove_quotes_and_concretize(text, frequency=300)
+    elif config.get('quote_concretize', 0) >= 1:
+        text = remove_quotes_and_concretize(text, frequency=600)
+
+    # 新功能3：段结构跳跃
+    if config.get('structure_jump', 0) >= 3:
+        text = paragraph_structure_jump(text, frequency=500)
+    elif config.get('structure_jump', 0) >= 1:
+        text = paragraph_structure_jump(text, frequency=1000)
 
     if config['linear_conn'] >= 3:
         text = remove_linear_connectors(text, frequency=500)
@@ -769,6 +1146,10 @@ def main():
         'empty_term': 3,
         'adverb': 3,
         'template': 3,
+        # 新增三个功能
+        'syntactic_perturb': 3,  # 句法结构扰动：倒装、打乱、省略、补充
+        'quote_concretize': 6,   # 删除双引号并替换抽象内容
+        'structure_jump': 3,     # 段结构跳跃：补充论据、反向论证、视角转化
     }
 
     print(f"正在处理: {input_file}")
