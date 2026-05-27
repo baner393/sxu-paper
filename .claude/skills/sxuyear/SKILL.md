@@ -3,6 +3,8 @@ name: sxuyear
 description: 将学年论文 Markdown 文件转换为符合山西财经大学论文规范的 Word 文档（.docx）。当用户输入 /sxuyear、提到"学年论文"、"论文格式转换"、"生成Word论文"时使用。只使用 minimax-docx skill 进行操作。
 
     - 你本机安装了 .NET SDK 8.0.421，路径在 C:\Users\ban\AppData\Local\Microsoft\dotnet\
+    - 已经创建好的一份完整的改格式的#c编码和Program.cs，位于D:\360MoveData\Users\ban\Desktop\school_about\word_about\sxuyear\build 只需要复用，不允许创建
+    - 如果用户没让你写一份新的c#和Program.cs用以适应其他格式，便不允许创建新的
 
 ---
 
