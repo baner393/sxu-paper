@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>山西财经大学学年论文排版工具</title>
+    <script>
+      // Polyfill for Promise.withResolvers (ES2024)
+      if (typeof Promise.withResolvers !== 'function') {
+        Promise.withResolvers = function () {
+          let resolve, reject;
+          var promise = new Promise(function (res, rej) {
+            resolve = res;
+            reject = rej;
+          });
+          return { promise: promise, resolve: resolve, reject: reject };
+        };
+      }
+    </script>
+    <script type="module" crossorigin src="/assets/index-zOpLVO3c.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-ya7SsW6a.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+/* App 布局样式 */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: var(--bg-secondary);
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+}
